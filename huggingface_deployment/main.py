@@ -25,8 +25,18 @@ async def lifespan(app: FastAPI):
     """Application lifespan context manager."""
     # Startup
     logger.info("Starting up Unified Assistant backend...")
-    await create_tables()
-    logger.info("Database tables created successfully")
+    logger.info(f"Database URL: {settings.database_url}")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Working directory: {os.getcwd()}")
+    try:
+        await create_tables()
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        logger.error(f"Exception details: {str(e)}")
+        # Continue startup even if database creation fails
+        # The application can still run with limited functionality
     yield
     # Shutdown
     logger.info("Shutting down Unified Assistant backend...")

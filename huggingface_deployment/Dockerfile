@@ -25,7 +25,10 @@ RUN mkdir -p /tmp/logs
 RUN mkdir -p /tmp
 RUN mkdir -p uploads
 RUN mkdir -p logs
-RUN chmod 755 /app
+RUN chmod 777 /app
+RUN chmod 777 /tmp
+RUN chown -R nobody:nogroup /app
+RUN chown -R nobody:nogroup /tmp
 
 # Set environment variables
 ENV PYTHONPATH=/app

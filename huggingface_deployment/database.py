@@ -3,10 +3,10 @@ Async database configuration and session management.
 """
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from config import settings
+from base import Base
 
 DATABASE_URL = settings.database_url
 
@@ -51,11 +51,20 @@ sync_engine = create_engine(
 )
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
-Base = declarative_base()
-
 # Import models to ensure they are registered with SQLAlchemy
 # This must be done after Base is defined and engines are created
-import models
+import logging
+logger = logging.getLogger(__name__)
+
+try:
+    import models
+    logger.info("Models imported successfully")
+    logger.info(f"Number of tables in metadata: {len(Base.metadata.tables)}")
+    for table_name in Base.metadata.tables.keys():
+        logger.info(f"Table: {table_name}")
+except Exception as e:
+    logger.error(f"Failed to import models: {e}")
+    raise
 
 async def get_async_db():
     """Get async database session."""
@@ -78,7 +87,16 @@ def get_sync_db():
 
 async def create_tables():
     """Create all database tables asynchronously."""
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info(f"Attempting to create tables with database URL: {DATABASE_URL}")
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {e}")
+        raise
 
 # (Sync get_db and create_tables_sync removed for async-only migration)
