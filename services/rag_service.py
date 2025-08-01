@@ -135,7 +135,7 @@ class RAGService:
             # Add sequential context from previous phases
             for phase in previous_phases[-3:]:  # Last 3 phases for immediate context
                 if phase.ai_response:
-                    context_parts.append(f"Phase {phase.phase_number} ({phase.title}):\n{phase.ai_response}")
+                    context_parts.append("Phase {} ({}):\n".format(phase.phase_number, phase.title) + phase.ai_response)
                     context_sources.append(f"Phase {phase.phase_number}")
             
             # 2. Get semantically similar content using RAG
@@ -148,7 +148,7 @@ class RAGService:
             for phase, similarity in similar_phases:
                 if phase.phase_number not in added_phases and phase.ai_response:
                     context_parts.append(
-                        f"Related content from Phase {phase.phase_number} ({phase.title}) [similarity: {similarity:.2f}]:\n{phase.ai_response}"
+                        "Related content from Phase {} ({}) [similarity: {:.2f}]:\n".format(phase.phase_number, phase.title, similarity) + phase.ai_response
                     )
                     context_sources.append(f"Phase {phase.phase_number} (RAG)")
                     added_phases.add(phase.phase_number)

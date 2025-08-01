@@ -203,4 +203,4 @@ class APIResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
-    error_code: Optional[str] = None
+    error_code: Optional[str] = None 

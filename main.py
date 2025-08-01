@@ -25,8 +25,25 @@ async def lifespan(app: FastAPI):
     """Application lifespan context manager."""
     # Startup
     logger.info("Starting up Unified Assistant backend...")
-    await create_tables()
-    logger.info("Database tables created successfully")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Is Production: {settings.is_production}")
+    logger.info(f"Is Hugging Face Deployment: {settings.is_huggingface_deployment}")
+    
+    try:
+        # Always require Supabase
+        if not settings.supabase_db_url and not os.getenv("SUPABASE_DB_URL"):
+            logger.error("❌ SUPABASE_DB_URL environment variable is required")
+            logger.error("🔧 Please set SUPABASE_DB_URL in your environment variables or Hugging Face Space secrets")
+            raise ValueError("SUPABASE_DB_URL environment variable is required")
+        else:
+            logger.info("✅ Supabase database configuration detected")
+        
+        await create_tables()
+        logger.info("✅ Database tables created successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to create database tables: {e}")
+        logger.error("Please check your Supabase database configuration and connection")
+        raise e
     yield
     # Shutdown
     logger.info("Shutting down Unified Assistant backend...")
@@ -68,6 +85,9 @@ async def root():
         "service": "Unified Assistant API",
         "version": "1.0.0",
         "description": "AI-powered document creation platform with 14-phase workflows",
+        "environment": settings.environment,
+        "is_production": settings.is_production,
+        "is_huggingface_deployment": settings.is_huggingface_deployment,
         "docs": "/docs",
         "openapi": "/openapi.json",
         "health": "/health",
@@ -78,7 +98,12 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "unified-assistant-backend"}
+    return {
+        "status": "healthy", 
+        "service": "unified-assistant-backend",
+        "environment": settings.environment,
+        "database": "supabase"
+    }
 
 
 # Include routers

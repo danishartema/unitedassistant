@@ -395,10 +395,10 @@ class ChatbotService:
         # Build context from previous answers
         context = ""
         if previous_answers:
-            context = "Previous answers:\n"
+            context = "Previous answers:" + chr(10)
             for q_num, answer in previous_answers.items():
                 if answer and answer.strip():  # Only include non-empty answers
-                    context += f"Q{q_num}: {answer}\n"
+                    context += f"Q{q_num}: {answer}" + chr(10)
         
         # Get the current question
         question = questions[current_question]
@@ -550,22 +550,29 @@ class ChatbotService:
         system_prompt: str, 
         question: str, 
         context: str = "", 
-        rag_content: List[str] = None
+        rag_content: list = None
     ) -> str:
-        """Enhance a question using the module's system prompt and RAG content."""
         try:
-            # Build the prompt
-            prompt = f"""You are an expert AI assistant following this system prompt:
-
-{system_prompt}
-
-Current question to enhance: {question}
-
-{f"Context from previous answers:{chr(10)}{context}" if context else ""}
-
-{f"Additional context from RAG files:{chr(10)}{chr(10).join(rag_content)}" if rag_content else ""}
-
-Please enhance this question to be more engaging, specific, and helpful. Make it conversational and encouraging. Return only the enhanced question, nothing else."""
+            # Build the prompt parts safely
+            prompt_parts = [
+                "You are an expert AI assistant following this system prompt:",
+                "",
+                system_prompt,
+                "",
+                f"Current question to enhance: {question}",
+                ""
+            ]
+            if context:
+                prompt_parts.append("Context from previous answers:\n" + context)
+                prompt_parts.append("")
+            if rag_content:
+                prompt_parts.append("Additional context from RAG files:\n" + "\n".join(rag_content))
+                prompt_parts.append("")
+            prompt_parts.append(
+                "Please enhance this question to be more engaging, specific, and helpful. "
+                "Make it conversational and encouraging. Return only the enhanced question, nothing else."
+            )
+            prompt = "\n".join(prompt_parts)
 
             # Use AI service manager for content generation
             enhanced = await self.ai_manager.generate_content(
@@ -593,7 +600,10 @@ Please enhance this question to be more engaging, specific, and helpful. Make it
         module = self.modules[module_id]
         
         try:
-            # Build the summary prompt
+            # Build the summary prompt with proper newline handling
+            template_part = ("Use this output template as a guide:\n" + module['output_template']) if module['output_template'] else ""
+            rag_part = ("Additional context from RAG files:\n" + "\n".join(module['rag_content'])) if module['rag_content'] else ""
+            
             prompt = f"""You are an expert AI assistant following this system prompt:
 
 {module['system_prompt']}
@@ -602,9 +612,9 @@ The user has completed all questions for {module['name']}. Here are their answer
 
 {chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers.values())])}
 
-{f"Use this output template as a guide:{chr(10)}{module['output_template']}" if module['output_template'] else ""}
+{template_part}
 
-{f"Additional context from RAG files:{chr(10)}{chr(10).join(module['rag_content'])}" if module['rag_content'] else ""}
+{rag_part}
 
 Please generate a comprehensive summary report that includes:
 1. A detailed analysis of their responses
@@ -691,7 +701,7 @@ Format the response as a professional report with clear sections and actionable 
                     
                     # Generate individual module summary with rate limiting
                     module_summary = await self.generate_module_summary(module_id, answers)
-                    combined_sections.append(f"## {module_summary['module_name']}\n\n{module_summary['summary']}")
+                    combined_sections.append("## " + module_summary['module_name'] + "\n\n" + module_summary['summary'])
                     
                     # Add delay between API calls to avoid rate limiting
                     if module_count < len(completed_modules):

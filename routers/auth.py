@@ -104,7 +104,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 @router.post("/refresh", response_model=dict)
-def refresh_token(
+async def refresh_token(
     request: RefreshTokenRequest
 ):
     """Refresh access token using refresh token."""
@@ -125,7 +125,7 @@ def refresh_token(
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(
+async def get_current_user_info(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get current user information."""
@@ -133,7 +133,7 @@ def get_current_user_info(
 
 
 @router.post("/logout", response_model=APIResponse)
-def logout_user(
+async def logout_user(
     current_user: User = Depends(get_current_active_user)
 ):
     """Logout user (client should discard tokens)."""

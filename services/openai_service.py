@@ -41,7 +41,7 @@ Always provide actionable, detailed content that helps move the document creatio
             # Build user message
             user_message = prompt
             if context:
-                user_message = f"Context from previous phases:\n{context}\n\nCurrent phase request:\n{prompt}"
+                user_message = "Context from previous phases:\n" + context + "\n\nCurrent phase request:\n" + prompt
             
             # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
             # do not change this unless explicitly requested by the user
