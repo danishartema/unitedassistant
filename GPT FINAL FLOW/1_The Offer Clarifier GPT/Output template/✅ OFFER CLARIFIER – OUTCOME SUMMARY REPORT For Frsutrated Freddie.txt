@@ -1,0 +1,66 @@
+✅ OFFER CLARIFIER – OUTCOME SUMMARY REPORT
+💼 Offer Name
+ Eureka Ideation Machine (powered by Eddie)
+🌟 Core Transformation / Outcome
+ The Eureka Ideation Machine helps you get unstuck by giving you fresh, ready-to-use marketing ideas to grow your business. It’s like having a team of A-list marketers in a think tank, ready to brainstorm with you and deliver 2–3 complete campaign plans — showing you what to say, how to say it, and where to say it — so you can attract more customers without the guesswork.
+📦 Key Features
+Multiple marketing bots that help brainstorm and build campaigns based on your perfect customer.
+
+A guided process that asks the right questions and tailors strategies using your input.
+
+Memory-enabled assistant that remembers your ideas and updates plans as your thoughts evolve.
+
+All ideas and documents are stored in a dedicated “project vault” so you can return anytime.
+
+Simple and intuitive — anyone can use it without needing marketing experience.
+
+🚚 Delivery Method
+ Starts with three live mini-classes (also recorded for on-demand access) on Tuesday, Wednesday, and Thursday, helping users define their offer, customer, and journey. After that, users access Eddie to develop campaigns and strategies based on their work.
+🧩 Format
+ Hybrid program combining a course, guided software, and membership platform. Includes a basic and pro version, with coaching and advanced tools for deeper support.
+💰 Price & Payment
+Basic – $39/month (annual) or $49/month (monthly) – 1 saved project
+
+Solopreneur – $97/month – 3 saved projects
+
+Pro – $197/month (10 projects) or $297/month (unlimited)
+
+Premier – $497/month – includes AI Voice Agent trained by Eddie + Database Reactivation campaign
+
+🧠 Unique Selling Proposition (USP)
+ Everything you create with Eddie is saved and organized in your personal idea vault. You’re not just getting one-off ideas — you’re building a growing think tank of well-designed, strategic marketing campaigns that flow step-by-step from ideation to execution.
+🎯 Target Audience
+ Anyone with a product or service to sell who needs fresh marketing ideas — from business owners and marketers to salespeople and service providers. Ideal for those who feel stuck, want proven strategies, and don’t want to hire expensive agencies.
+🔥 Problems Solved
+Lack of new marketing ideas to grow the business.
+
+Expensive, biased marketing advice from agencies.
+
+No clear plan to hand off to a marketing team.
+
+➡️ Does this look good?
+ Say “Yes” to proceed — or let me know what you’d like to change.
+
+
+{
+  "title": "Eureka Ideation Machine",
+  "coreOutcome": "Helps business owners and marketers get unstuck with fresh, ready-to-use campaign ideas, like having a team of A-list marketers brainstorming for them.",
+  "features": [
+    "Multiple marketing bots that build campaigns based on your customer",
+    "Smart questions and memory-based customization",
+    "Idea vault that saves all brainstorms and outputs",
+    "Live and recorded onboarding trainings",
+    "Simple, intuitive design for non-marketers"
+  ],
+  "delivery": "Live and on-demand trainings (Tues–Thurs), followed by guided use of Eddie inside the Eureka Ideation Machine",
+  "format": "Hybrid of course, software, and membership",
+  "pricePoint": "Basic: $39/month (annual) or $49/month (monthly); Solopreneur: $97/month; Pro: $197/month (10 projects) or $297/month (unlimited); Premier: $497/month",
+  "USP": "Saves every idea and campaign into a memory-based vault, guiding users through a step-by-step strategy creation process they can hand off to their team",
+  "targetAudience": "Business owners, marketers, salespeople, and service providers who want smart, affordable marketing help",
+  "problemsSolved": [
+    "No fresh ideas or clear campaign direction",
+    "Can't afford or trust expensive marketing agencies",
+    "Need ready-to-execute marketing plans for their team"
+  ]
+}
+

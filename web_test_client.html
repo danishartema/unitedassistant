@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Assistant - Chatbot API Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #e1e5e9;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header:hover {
+            background: #e9ecef;
+        }
+
+        .section-header h3 {
+            color: #495057;
+            font-size: 1.3em;
+        }
+
+        .section-content {
+            padding: 20px;
+            display: none;
+        }
+
+        .section-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #4facfe;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #4facfe;
+        }
+
+        .response.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+
+        .response.error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+
+        .response pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .auth-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .auth-section h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e1e5e9;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            border-bottom-color: #4facfe;
+            color: #4facfe;
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e1e5e9;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .module-card {
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+
+        .module-card h4 {
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .module-card p {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .module-card .btn {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Unified Assistant</h1>
+            <p>Chatbot API Test Client - Test all endpoints directly from your browser</p>
+        </div>
+
+        <div class="content">
+            <!-- Authentication Section -->
+            <div class="auth-section">
+                <h3>🔐 Authentication</h3>
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('login')">Login</div>
+                    <div class="tab" onclick="switchTab('register')">Register</div>
+                </div>
+
+                <div id="login" class="tab-content active">
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="loginEmail" placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="loginPassword" placeholder="password">
+                    </div>
+                    <button class="btn" onclick="login()">Login</button>
+                </div>
+
+                <div id="register" class="tab-content">
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="registerEmail" placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name:</label>
+                        <input type="text" id="registerName" placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="registerPassword" placeholder="password">
+                    </div>
+                    <button class="btn" onclick="register()">Register</button>
+                </div>
+
+                <div id="authResponse" class="response" style="display: none;"></div>
+            </div>
+
+            <!-- Basic Endpoints Section -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('basic')">
+                    <h3>📋 Basic Endpoints</h3>
+                    <span>▼</span>
+                </div>
+                <div id="basic" class="section-content">
+                    <div class="form-group">
+                        <button class="btn" onclick="testHealth()">Test Health Check</button>
+                        <button class="btn" onclick="listModes()">List Available Modes</button>
+                    </div>
+                    <div id="basicResponse" class="response" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Module Management Section -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('modules')">
+                    <h3>📚 Module Management</h3>
+                    <span>▼</span>
+                </div>
+                <div id="modules" class="section-content">
+                    <div class="form-group">
+                        <label>Module ID:</label>
+                        <select id="moduleSelect">
+                            <option value="">Select a module...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn" onclick="getModuleInfo()">Get Module Info</button>
+                    </div>
+                    <div id="moduleResponse" class="response" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Project Management Section -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('projects')">
+                    <h3>📁 Project Management</h3>
+                    <span>▼</span>
+                </div>
+                <div id="projects" class="section-content">
+                    <div class="form-group">
+                        <label>Project Name:</label>
+                        <input type="text" id="projectName" placeholder="My Test Project">
+                    </div>
+                    <div class="form-group">
+                        <label>Project Description:</label>
+                        <textarea id="projectDescription" placeholder="Description of the project"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn" onclick="createProject()">Create Project</button>
+                        <button class="btn" onclick="listProjects()">List Projects</button>
+                    </div>
+                    <div id="projectResponse" class="response" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Chatbot Session Section -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('chatbot')">
+                    <h3>💬 Chatbot Session</h3>
+                    <span>▼</span>
+                </div>
+                <div id="chatbot" class="section-content">
+                    <div class="form-group">
+                        <label>Project ID:</label>
+                        <input type="text" id="sessionProjectId" placeholder="Enter project ID">
+                    </div>
+                    <div class="form-group">
+                        <label>Mode Name:</label>
+                        <select id="modeSelect">
+                            <option value="">Select a mode...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn" onclick="startModeSession()">Start Mode Session</button>
+                        <button class="btn" onclick="getNextQuestion()">Get Next Question</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Your Answer:</label>
+                        <textarea id="userAnswer" placeholder="Type your answer here..." oninput="validateAnswer()"></textarea>
+                        <div id="validationMessage" style="margin-top: 5px; font-size: 12px;"></div>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn" onclick="submitAnswer()">Submit Answer</button>
+                        <button class="btn" onclick="skipQuestion()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">Skip Question</button>
+                        <button class="btn" onclick="getModeSummary()">Get Summary</button>
+                        <button class="btn" onclick="completeModule()">Complete Module</button>
+                    </div>
+                    <div id="chatbotResponse" class="response" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Progress Tracking Section -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('progress')">
+                    <h3>📊 Progress Tracking</h3>
+                    <span>▼</span>
+                </div>
+                <div id="progress" class="section-content">
+                    <div class="form-group">
+                        <label>Project ID:</label>
+                        <input type="text" id="progressProjectId" placeholder="Enter project ID">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn" onclick="getProjectProgress()">Get Project Progress</button>
+                    </div>
+                    <div id="progressResponse" class="response" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let authToken = null;
+        let currentProjectId = null;
+        let currentModeName = null;
+        let currentQuestion = 0;
+
+        // API Base URL
+        const API_BASE = 'http://localhost:8000';
+
+        // Utility functions
+        function showResponse(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `response ${isError ? 'error' : 'success'}`;
+            
+            const status = document.createElement('div');
+            status.className = `status ${isError ? 'error' : 'success'}`;
+            status.textContent = isError ? '❌ Error' : '✅ Success';
+            
+            const pre = document.createElement('pre');
+            pre.textContent = JSON.stringify(data, null, 2);
+            
+            element.innerHTML = '';
+            element.appendChild(status);
+            element.appendChild(pre);
+        }
+
+        function hideResponse(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            content.classList.toggle('active');
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Authentication functions
+        async function register() {
+            const email = document.getElementById('registerEmail').value;
+            const fullName = document.getElementById('registerName').value;
+            const password = document.getElementById('registerPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, full_name: fullName, password })
+                });
+
+                const data = await response.json();
+                showResponse('authResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('authResponse', { error: error.message }, true);
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: password })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    authToken = data.access_token;
+                    showResponse('authResponse', { message: 'Login successful!', token: data.access_token.substring(0, 20) + '...' });
+                } else {
+                    showResponse('authResponse', data, true);
+                }
+            } catch (error) {
+                showResponse('authResponse', { error: error.message }, true);
+            }
+        }
+
+        // Basic endpoints
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResponse('basicResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('basicResponse', { error: error.message }, true);
+            }
+        }
+
+        async function listModes() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/modes`);
+                const data = await response.json();
+                showResponse('basicResponse', data, !response.ok);
+                
+                if (response.ok && data.modules) {
+                    // Populate module selects
+                    const moduleSelect = document.getElementById('moduleSelect');
+                    const modeSelect = document.getElementById('modeSelect');
+                    
+                    moduleSelect.innerHTML = '<option value="">Select a module...</option>';
+                    modeSelect.innerHTML = '<option value="">Select a mode...</option>';
+                    
+                    data.modules.forEach(module => {
+                        moduleSelect.innerHTML += `<option value="${module.id}">${module.name}</option>`;
+                        modeSelect.innerHTML += `<option value="${module.name}">${module.name}</option>`;
+                    });
+                }
+            } catch (error) {
+                showResponse('basicResponse', { error: error.message }, true);
+            }
+        }
+
+        // Module management
+        async function getModuleInfo() {
+            const moduleId = document.getElementById('moduleSelect').value;
+            if (!moduleId) {
+                showResponse('moduleResponse', { error: 'Please select a module' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/modules/${moduleId}/info`);
+                const data = await response.json();
+                showResponse('moduleResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('moduleResponse', { error: error.message }, true);
+            }
+        }
+
+        // Project management
+        async function createProject() {
+            if (!authToken) {
+                showResponse('projectResponse', { error: 'Please login first' }, true);
+                return;
+            }
+
+            const title = document.getElementById('projectName').value;
+            const description = document.getElementById('projectDescription').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/projects/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ title, description, project_type: 'marketing' })
+                });
+
+                const data = await response.json();
+                showResponse('projectResponse', data, !response.ok);
+                
+                if (response.ok && data.id) {
+                    currentProjectId = data.id;
+                    document.getElementById('sessionProjectId').value = data.id;
+                    document.getElementById('progressProjectId').value = data.id;
+                }
+            } catch (error) {
+                showResponse('projectResponse', { error: error.message }, true);
+            }
+        }
+
+        async function listProjects() {
+            if (!authToken) {
+                showResponse('projectResponse', { error: 'Please login first' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/projects/`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                showResponse('projectResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('projectResponse', { error: error.message }, true);
+            }
+        }
+
+        // Chatbot session
+        async function startModeSession() {
+            if (!authToken) {
+                showResponse('chatbotResponse', { error: 'Please login first' }, true);
+                return;
+            }
+
+            const projectId = document.getElementById('sessionProjectId').value;
+            const modeName = document.getElementById('modeSelect').value;
+
+            if (!projectId || !modeName) {
+                showResponse('chatbotResponse', { error: 'Please provide project ID and mode name' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${projectId}/modes/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ mode_name: modeName })
+                });
+
+                const data = await response.json();
+                showResponse('chatbotResponse', data, !response.ok);
+                
+                if (response.ok) {
+                    currentProjectId = projectId;
+                    currentModeName = modeName;
+                    currentQuestion = 0;
+                }
+            } catch (error) {
+                showResponse('chatbotResponse', { error: error.message }, true);
+            }
+        }
+
+        async function getNextQuestion() {
+            if (!authToken || !currentProjectId || !currentModeName) {
+                showResponse('chatbotResponse', { error: 'Please start a mode session first' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${currentProjectId}/modes/${currentModeName}/next-question`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                showResponse('chatbotResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('chatbotResponse', { error: error.message }, true);
+            }
+        }
+
+        async function submitAnswer() {
+            if (!authToken || !currentProjectId || !currentModeName) {
+                showResponse('chatbotResponse', { error: 'Please start a mode session first' }, true);
+                return;
+            }
+
+            const answer = document.getElementById('userAnswer').value;
+            if (!answer) {
+                showResponse('chatbotResponse', { error: 'Please provide an answer' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${currentProjectId}/modes/${currentModeName}/answer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ answer })
+                });
+
+                const data = await response.json();
+                
+                // Handle validation errors
+                if (data.valid === false) {
+                    showResponse('chatbotResponse', { error: data.error }, true);
+                    return;
+                }
+                
+                showResponse('chatbotResponse', data, !response.ok);
+                
+                if (response.ok) {
+                    document.getElementById('userAnswer').value = '';
+                    document.getElementById('validationMessage').textContent = '';
+                    currentQuestion++;
+                }
+            } catch (error) {
+                showResponse('chatbotResponse', { error: error.message }, true);
+            }
+        }
+
+        async function skipQuestion() {
+            if (!authToken || !currentProjectId || !currentModeName) {
+                showResponse('chatbotResponse', { error: 'Please start a mode session first' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${currentProjectId}/modes/${currentModeName}/skip`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ reason: "User chose to skip" })
+                });
+
+                const data = await response.json();
+                showResponse('chatbotResponse', data, !response.ok);
+                
+                if (response.ok) {
+                    document.getElementById('userAnswer').value = '';
+                    document.getElementById('validationMessage').textContent = '';
+                    currentQuestion++;
+                }
+            } catch (error) {
+                showResponse('chatbotResponse', { error: error.message }, true);
+            }
+        }
+
+        async function validateAnswer() {
+            const answer = document.getElementById('userAnswer').value;
+            const validationMessage = document.getElementById('validationMessage');
+            
+            if (!answer || !answer.trim()) {
+                validationMessage.textContent = '';
+                validationMessage.style.color = '';
+                return;
+            }
+            
+            // Basic client-side validation
+            if (answer.length < 3) {
+                validationMessage.textContent = '⚠️ Answer must be at least 3 characters long';
+                validationMessage.style.color = '#ff6b6b';
+                return;
+            }
+            
+            if (answer.length > 1000) {
+                validationMessage.textContent = '⚠️ Answer must be no more than 1000 characters';
+                validationMessage.style.color = '#ff6b6b';
+                return;
+            }
+            
+            // Email validation
+            if (answer.includes('@') && !isValidEmail(answer)) {
+                validationMessage.textContent = '⚠️ Please enter a valid email address';
+                validationMessage.style.color = '#ff6b6b';
+                return;
+            }
+            
+            validationMessage.textContent = '✅ Answer looks good!';
+            validationMessage.style.color = '#28a745';
+        }
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        async function getModeSummary() {
+            if (!authToken || !currentProjectId || !currentModeName) {
+                showResponse('chatbotResponse', { error: 'Please start a mode session first' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${currentProjectId}/modes/${currentModeName}/summary`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                showResponse('chatbotResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('chatbotResponse', { error: error.message }, true);
+            }
+        }
+
+        async function completeModule() {
+            if (!authToken || !currentProjectId || !currentModeName) {
+                showResponse('chatbotResponse', { error: 'Please start a mode session first' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${currentProjectId}/modes/${currentModeName}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ confirm_completion: true })
+                });
+
+                const data = await response.json();
+                showResponse('chatbotResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('chatbotResponse', { error: error.message }, true);
+            }
+        }
+
+        // Progress tracking
+        async function getProjectProgress() {
+            if (!authToken) {
+                showResponse('progressResponse', { error: 'Please login first' }, true);
+                return;
+            }
+
+            const projectId = document.getElementById('progressProjectId').value;
+            if (!projectId) {
+                showResponse('progressResponse', { error: 'Please provide project ID' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/assistant/projects/${projectId}/progress`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                showResponse('progressResponse', data, !response.ok);
+            } catch (error) {
+                showResponse('progressResponse', { error: error.message }, true);
+            }
+        }
+
+        // Initialize the page
+        window.onload = function() {
+            // Test connection on load
+            testHealth();
+        };
+    </script>
+</body>
+</html> 

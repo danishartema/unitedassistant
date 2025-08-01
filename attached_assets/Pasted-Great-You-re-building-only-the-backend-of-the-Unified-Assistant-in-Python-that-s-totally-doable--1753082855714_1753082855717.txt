@@ -1,0 +1,172 @@
+Great! You're building only the backend of the Unified Assistant in Python — that’s totally doable. Let me break this down in simple terms, summarizing what the document says and what you need to do step-by-step as a Python backend developer.
+
+🧭 What They’re Telling You (Simplified)
+They want a backend system that powers an AI assistant which:
+
+Helps users create complex documents in 14 phases.
+
+Remembers everything the user says (even months later).
+
+Understands when previous steps change and updates future steps.
+
+Supports saving, editing, inviting collaborators, and exporting outputs.
+
+✅ Your Goal (Backend Only)
+Build the backend logic, database, APIs, AI integration, and background task system that:
+
+Handles users, projects, and phases.
+
+Integrates with OpenAI to generate content.
+
+Stores everything permanently (5-year memory).
+
+Rebuilds context and handles cascading updates.
+
+Supports collaboration (invite editors).
+
+Exports documents asynchronously (PDF/Word/JSON).
+
+📦 Backend Tech Stack You’ll Use
+Component	Tool
+Framework	FastAPI (Python 3.11+)
+Database	PostgreSQL 16+ with pgvector
+Caching & Queue	Redis 7+
+Async Tasks	Celery
+AI Models	OpenAI (gpt-4-turbo-preview)
+Embedding	text-embedding-3-small
+Deployment	Docker + AWS (EKS, RDS, ElastiCache)
+CI/CD & IaC	GitHub Actions + Terraform
+
+🏗️ Backend Development Plan (Step-by-Step)
+✅ Phase 1: Project & User Management
+Set up FastAPI project structure.
+
+Build API for:
+
+User registration/login (JWT).
+
+Create/view/update/delete Projects.
+
+Invite collaborators (Editor role).
+
+Use PostgreSQL schema:
+
+sql
+Copy
+Edit
+User, Project, ProjectMembers, Phase, PhaseDrafts
+✅ Phase 2: 14-Phase Engine
+Create a table: Phase(id, project_id, phase_number, title, prompt, status)
+
+Each phase should store:
+
+Input questions
+
+User responses
+
+AI-generated drafts
+
+Version history
+
+API endpoints:
+
+/projects/{id}/phases/{n}/start
+
+/projects/{id}/phases/{n}/edit
+
+/projects/{id}/phases/{n}/reconstruct-context
+
+✅ Phase 3: RAG + AI Integration
+Use pgvector to store embedding of every phase’s content.
+
+Use text-embedding-3-small to embed phase summaries.
+
+On each request, retrieve past relevant phases using semantic search.
+
+Send context + user input to gpt-4-turbo-preview for generation.
+
+✅ Phase 4: Cascade Update Logic
+Track dependency tree between phases.
+
+If a user edits Phase 3:
+
+Flag Phases 4–14 as STALE.
+
+Store in Phase.status = 'STALE'
+
+Let frontend show warnings for outdated sections.
+
+✅ Phase 5: Draft Versioning
+Every edit should save the previous version:
+
+Use PhaseDrafts(phase_id, version, content, created_at)
+
+Allow rollback if needed.
+
+✅ Phase 6: Export System (Async via Celery)
+User hits Export → generate final document in background.
+
+Use Celery with Redis as the broker.
+
+Tasks:
+
+Fetch all phases
+
+Merge & format into PDF, Word, and JSON
+
+Save file location to database
+
+✅ Phase 7: Auth & Roles
+Implement JWT-based OAuth2.0:
+
+Refresh + access tokens.
+
+Define roles:
+
+Owner: Can edit/delete, manage users
+
+Editor: Can edit but not delete or manage
+
+✅ Phase 8: State Persistence & 5-Year Memory
+Store everything:
+
+Inputs
+
+Drafts
+
+Chat logs (optional)
+
+Export files
+
+Use PostgreSQL for all long-term memory.
+
+🛡️ Security (Must-Haves)
+TLS 1.3 (assume HTTPS via AWS load balancer).
+
+AES-256 encryption (use managed RDS + backups).
+
+Validate every request and apply role-based access.
+
+🧪 What to Test
+Phase jumping + context fallback.
+
+Phase editing + cascade behavior.
+
+RAG retrieval accuracy.
+
+Export generation.
+
+User/role enforcement.
+
+✅ Summary Checklist for You
+Task	Priority	Tools
+Project & User API	✅ High	FastAPI, PostgreSQL
+Phase Draft System	✅ High	FastAPI, pgvector
+AI Content Gen	✅ High	OpenAI (gpt-4-turbo)
+RAG Retrieval	✅ High	pgvector, embeddings
+Cascade Update Engine	✅ Medium	FastAPI logic
+Async Export	✅ Medium	Celery, Redis
+Role-Based Access	✅ Medium	FastAPI, JWT
+Versioning	✅ Medium	PostgreSQL
+Deployment	🔜 Later	Docker, AWS, Terraform
+
