@@ -6,7 +6,14 @@ from typing import Dict, List, Optional, Any
 from config import settings
 
 from services.openai_service import OpenAIService
-from services.huggingface_service import HuggingFaceService
+
+# Optional import for Hugging Face service
+try:
+    from services.huggingface_service import HuggingFaceService
+    HUGGINGFACE_AVAILABLE = True
+except ImportError:
+    HUGGINGFACE_AVAILABLE = False
+    HuggingFaceService = None
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +36,15 @@ class AIServiceManager:
         else:
             logger.warning("OpenAI API key not configured")
         
-        # Initialize Hugging Face service
-        if settings.hf_api_token:
+        # Initialize Hugging Face service (optional)
+        if HUGGINGFACE_AVAILABLE and settings.hf_api_token:
             try:
                 self.huggingface_service = HuggingFaceService()
                 logger.info("Hugging Face service initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Hugging Face service: {e}")
+        elif not HUGGINGFACE_AVAILABLE:
+            logger.warning("Hugging Face service not available - dependencies not installed")
         
         logger.info(f"AI Service Manager initialized with primary service: {self.primary_service}")
     
@@ -164,7 +173,8 @@ class AIServiceManager:
             "huggingface": {
                 "available": self.huggingface_service is not None,
                 "configured": bool(settings.hf_api_token or settings.hf_model_name),
-                "model": settings.hf_model_name if self.huggingface_service else None
+                "model": settings.hf_model_name if self.huggingface_service else None,
+                "dependencies_available": HUGGINGFACE_AVAILABLE
             }
         }
     

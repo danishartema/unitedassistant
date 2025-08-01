@@ -143,7 +143,7 @@ class HuggingFaceService:
     ) -> List[float]:
         """Create embedding using Hugging Face models."""
         try:
-            if self.client:
+            if self.client and HUGGINGFACE_HUB_AVAILABLE:
                 # Use Hugging Face Inference API
                 result = self.client.feature_extraction(
                     text,
@@ -151,11 +151,11 @@ class HuggingFaceService:
                 )
                 return result[0] if isinstance(result, list) else result
             else:
-                raise Exception("Hugging Face client not initialized")
+                raise Exception("Hugging Face client not initialized or dependencies not available")
                 
         except Exception as e:
             logger.error(f"Hugging Face embedding error: {e}")
-            raise Exception(f"Failed to create embedding: {str(e)}")
+            raise
     
     async def classify_text(
         self,
@@ -164,18 +164,18 @@ class HuggingFaceService:
     ) -> Dict[str, Any]:
         """Classify text using Hugging Face models."""
         try:
-            if self.client:
+            if self.client and HUGGINGFACE_HUB_AVAILABLE:
                 result = self.client.text_classification(
                     text,
                     model=model_name
                 )
                 return result
             else:
-                raise Exception("Hugging Face client not initialized")
+                raise Exception("Hugging Face client not initialized or dependencies not available")
                 
         except Exception as e:
             logger.error(f"Hugging Face classification error: {e}")
-            raise Exception(f"Failed to classify text: {str(e)}")
+            raise
     
     async def translate_text(
         self,
@@ -186,21 +186,21 @@ class HuggingFaceService:
     ) -> str:
         """Translate text using Hugging Face models."""
         try:
-            if self.client:
+            if self.client and HUGGINGFACE_HUB_AVAILABLE:
                 result = self.client.translation(
                     text,
                     model=model_name
                 )
                 return result
             else:
-                raise Exception("Hugging Face client not initialized")
+                raise Exception("Hugging Face client not initialized or dependencies not available")
                 
         except Exception as e:
             logger.error(f"Hugging Face translation error: {e}")
-            raise Exception(f"Failed to translate text: {str(e)}")
+            raise
     
     def get_available_models(self) -> List[str]:
-        """Get list of available models for the service."""
+        """Get list of available models."""
         models = []
         
         if self.client and HUGGINGFACE_HUB_AVAILABLE:
@@ -209,14 +209,24 @@ class HuggingFaceService:
         if self.pipeline and TRANSFORMERS_AVAILABLE:
             models.append(f"Local model: {settings.hf_model_name}")
         
+        if not models:
+            models.append("No models available - check dependencies and configuration")
+        
         return models
     
     def get_service_status(self) -> Dict[str, Any]:
         """Get service status and configuration."""
         return {
+            "service": "huggingface",
+            "status": "available" if (self.client or self.pipeline) else "unavailable",
+            "dependencies": {
+                "huggingface_hub": HUGGINGFACE_HUB_AVAILABLE,
+                "transformers": TRANSFORMERS_AVAILABLE,
+                "torch": TORCH_AVAILABLE
+            },
             "client_initialized": self.client is not None,
             "local_model_loaded": self.pipeline is not None,
-            "local_model_name": settings.hf_model_name if self.pipeline else None,
             "api_token_configured": bool(settings.hf_api_token),
+            "local_model_configured": bool(settings.hf_model_name),
             "available_models": self.get_available_models()
         } 
