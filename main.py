@@ -38,13 +38,40 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("✅ Supabase database configuration detected")
         
-        await create_tables()
-        logger.info("✅ Database tables created successfully")
+        # Try to create tables with better error handling
+        try:
+            await create_tables()
+            logger.info("✅ Database tables created successfully")
+        except Exception as db_error:
+            logger.error(f"❌ Database connection failed: {db_error}")
+            
+            # Provide specific guidance for Hugging Face deployment
+            if settings.is_huggingface_deployment:
+                logger.error("🔧 Hugging Face Deployment Database Issues:")
+                logger.error("1. Check if your Supabase project is active (not paused)")
+                logger.error("2. Verify your Supabase project is not suspended")
+                logger.error("3. Check if there are IP restrictions on your Supabase project")
+                logger.error("4. Verify the database credentials in your Space secrets")
+                logger.error("5. Try accessing your Supabase dashboard to confirm project status")
+                
+                # For Hugging Face deployment, we can continue without database
+                # The app will show appropriate error messages to users
+                logger.warning("⚠️  Continuing without database connection for debugging purposes")
+            else:
+                # For local development, fail fast
+                raise db_error
+                
     except Exception as e:
-        logger.error(f"❌ Failed to create database tables: {e}")
-        logger.error("Please check your Supabase database configuration and connection")
+        logger.error(f"❌ Startup error: {e}")
+        if settings.is_huggingface_deployment:
+            logger.error("🔧 Hugging Face Deployment Issues:")
+            logger.error("1. Check your Space secrets configuration")
+            logger.error("2. Verify all required environment variables are set")
+            logger.error("3. Check the Space logs for detailed error messages")
         raise e
+    
     yield
+    
     # Shutdown
     logger.info("Shutting down Unified Assistant backend...")
 
@@ -98,11 +125,22 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    try:
+        # Test database connection
+        from database import async_engine
+        async with async_engine.begin() as conn:
+            await conn.execute("SELECT 1")
+        db_status = "connected"
+    except Exception as e:
+        logger.warning(f"Database health check failed: {e}")
+        db_status = "disconnected"
+    
     return {
         "status": "healthy", 
         "service": "unified-assistant-backend",
         "environment": settings.environment,
-        "database": "supabase"
+        "database": db_status,
+        "is_huggingface_deployment": settings.is_huggingface_deployment
     }
 
 

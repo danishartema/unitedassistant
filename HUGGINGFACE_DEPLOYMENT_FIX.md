@@ -1,119 +1,140 @@
-# Hugging Face Deployment Fix Guide
+# Hugging Face Deployment Database Connection Fix
 
-## Problem
-The application is failing to start in Hugging Face deployment with the error:
+## 🚨 Current Issue: Network Unreachable Error
+
+Your Hugging Face Space is experiencing a database connection error:
 ```
-sqlite3.OperationalError: unable to open database file
+ERROR:main:❌ Failed to create database tables: [Errno 101] Network is unreachable
 ```
 
-This happens because SQLite cannot create or access database files in the containerized Hugging Face environment.
+This indicates that the Hugging Face container cannot reach your Supabase database.
 
-## Solution
-The application has been updated to automatically detect Hugging Face deployment and require Supabase database configuration.
+## 🔧 Quick Fixes
 
-## Quick Fix Steps
+### 1. Check Supabase Project Status
 
-### 1. Set Environment Variables in Hugging Face Space
+1. **Go to your Supabase Dashboard**: https://supabase.com/dashboard
+2. **Check if your project is active** (not paused or suspended)
+3. **Verify the project is in the correct region**
 
-Go to your Hugging Face Space and set these **REQUIRED** environment variables:
+### 2. Verify Database Credentials
 
-1. **SUPABASE_DB_URL** (Required)
-   - Get this from your Supabase project dashboard
-   - Go to Settings → Database → Connection string
-   - Copy the URI and add `+asyncpg` after `postgresql`
-   - Format: `postgresql+asyncpg://postgres:[password]@[host]:5432/postgres`
+1. **Go to your Supabase project** → Settings → Database
+2. **Copy the connection string** from the "Connection string" section
+3. **Update your Hugging Face Space secrets** with the correct connection string
 
-2. **ENVIRONMENT** (Required)
-   - Set to: `production`
+### 3. Check IP Restrictions
 
-3. **Other Required Variables**
-   - `OPENAI_API_KEY` - Your OpenAI API key
-   - `SECRET_KEY` - A secure secret key for JWT tokens
+1. **Go to your Supabase project** → Settings → Database
+2. **Check if there are any IP restrictions** that might block Hugging Face
+3. **If IP restrictions exist, either:**
+   - Remove them temporarily for testing
+   - Add Hugging Face's IP ranges to the allowlist
 
-### 2. Create Supabase Project (if you don't have one)
+### 4. Update Environment Variables
 
-1. Go to [https://supabase.com](https://supabase.com)
-2. Sign up/Login with GitHub
-3. Click "New Project"
-4. Choose organization and project name
-5. Set a strong database password
-6. Choose a region close to your users
-7. Wait for setup to complete (2-3 minutes)
-
-### 3. Get Database Connection String
-
-1. In your Supabase dashboard, go to **Settings** → **Database**
-2. Find the **Connection string** section
-3. Copy the **URI** (it looks like: `postgresql://postgres:[password]@[host]:5432/postgres`)
-4. Add `+asyncpg` after `postgresql` to make it: `postgresql+asyncpg://postgres:[password]@[host]:5432/postgres`
-
-### 4. Set Hugging Face Space Secrets
-
-In your Hugging Face Space:
-1. Go to **Settings** → **Repository secrets**
-2. Add these secrets:
+In your Hugging Face Space → Settings → Repository secrets, ensure you have:
 
 ```
-SUPABASE_DB_URL=postgresql+asyncpg://postgres:[your_password]@[your_host]:5432/postgres
+SUPABASE_DB_URL=postgresql+asyncpg://postgres:[YOUR_ACTUAL_PASSWORD]@[YOUR_ACTUAL_HOST]:5432/postgres
 ENVIRONMENT=production
 OPENAI_API_KEY=your_openai_api_key_here
-SECRET_KEY=your_super_secret_key_here
+SECRET_KEY=your_secret_key_here
+DEBUG=false
+HOST=0.0.0.0
+PORT=7860
 ```
 
-## What Changed in the Code
+## 🔍 Detailed Troubleshooting
 
-### 1. Enhanced Environment Detection
-The application now automatically detects Hugging Face deployment environment and requires Supabase.
+### Step 1: Verify Supabase Project
 
-### 2. Better Error Messages
-Clear error messages will guide you to set the required environment variables.
+1. **Access your Supabase dashboard**
+2. **Check project status** - ensure it's not paused
+3. **Verify the connection string** matches what you're using
 
-### 3. Automatic Database Type Detection
-The application automatically switches between SQLite (development) and PostgreSQL/Supabase (production).
+### Step 2: Test Connection Locally
 
-## Verification
+Run this test script to verify your connection string works:
 
-After setting the environment variables, the application will:
+```bash
+python test_supabase_complete.py
+```
 
-1. ✅ Detect Hugging Face deployment environment
-2. ✅ Use Supabase database connection
-3. ✅ Create all necessary tables automatically
-4. ✅ Start successfully without SQLite errors
+### Step 3: Check Hugging Face Space Secrets
 
-## Troubleshooting
+1. **Go to your Space** → Settings → Repository secrets
+2. **Verify all required variables are set**
+3. **Check for any typos in the connection string**
 
-### Error: "SUPABASE_DB_URL environment variable is required"
-- **Solution**: Set the `SUPABASE_DB_URL` environment variable in your Hugging Face Space secrets
+### Step 4: Alternative Connection String Format
 
-### Error: "unable to open database file"
-- **Solution**: This error should no longer occur with the updated code, but if it does, ensure `SUPABASE_DB_URL` is set
+Try using this format in your Space secrets:
 
-### Connection Issues
-- Verify the Supabase connection string format
-- Check if the database password is correct
-- Ensure the host is accessible from Hugging Face
+```
+SUPABASE_DB_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres?sslmode=require
+```
 
-## Environment Variables Reference
+## 🚀 Immediate Solutions
 
-| Variable | Description | Required | Example |
-|----------|-------------|----------|---------|
-| `SUPABASE_DB_URL` | PostgreSQL connection string | ✅ Yes | `postgresql+asyncpg://postgres:password@host:5432/postgres` |
-| `ENVIRONMENT` | Set to "production" | ✅ Yes | `production` |
-| `OPENAI_API_KEY` | OpenAI API key | ✅ Yes | `sk-...` |
-| `SECRET_KEY` | JWT secret key | ✅ Yes | `your-secret-key` |
+### Solution 1: Create New Supabase Project
 
-## Security Notes
+1. **Create a new Supabase project** in a different region
+2. **Use the new connection string** in your Hugging Face Space secrets
+3. **Redeploy your Space**
 
-- ✅ Never commit database credentials to version control
-- ✅ Use Hugging Face secrets for production
-- ✅ Supabase automatically handles SSL connections
-- ✅ Database is automatically backed up
+### Solution 2: Use Supabase Edge Functions
 
-## Migration from SQLite
+If the direct connection continues to fail, consider using Supabase Edge Functions as a proxy.
 
-The application automatically detects the environment and switches to Supabase when:
-- `ENVIRONMENT=production` is set
-- `SUPABASE_DB_URL` is provided
-- Running in Hugging Face deployment environment
+### Solution 3: Check Region Compatibility
 
-No code changes needed - it's handled automatically by the configuration system. 
+1. **Verify your Supabase project region**
+2. **Some regions may have connectivity issues with Hugging Face**
+3. **Try creating a project in a different region** (e.g., US East, Europe)
+
+## 📋 Verification Steps
+
+After making changes:
+
+1. **Redeploy your Hugging Face Space**
+2. **Check the logs** for connection success
+3. **Visit the health endpoint**: `https://your-space.hf.space/health`
+4. **Test the API documentation**: `https://your-space.hf.space/docs`
+
+## 🔗 Useful Links
+
+- **Supabase Dashboard**: https://supabase.com/dashboard
+- **Hugging Face Spaces**: https://huggingface.co/spaces
+- **Connection String Guide**: https://supabase.com/docs/guides/database/connecting-to-postgres
+
+## 📞 Support
+
+If the issue persists:
+
+1. **Check Supabase status**: https://status.supabase.com
+2. **Check Hugging Face status**: https://status.huggingface.co
+3. **Review the detailed logs** in your Hugging Face Space
+4. **Try the connection test scripts** provided in this repository
+
+## 🎯 Expected Success Logs
+
+When the connection works, you should see:
+
+```
+INFO:main:✅ Supabase database configuration detected
+INFO:main:✅ Database tables created successfully
+INFO:main:🚀 Application startup complete
+```
+
+And the health endpoint should return:
+
+```json
+{
+  "status": "healthy",
+  "service": "unified-assistant-backend",
+  "environment": "production",
+  "database": "connected",
+  "is_huggingface_deployment": true
+}
+``` 
