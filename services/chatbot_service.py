@@ -561,9 +561,9 @@ class ChatbotService:
 
 Current question to enhance: {question}
 
-{f"Context from previous answers:\n{context}" if context else ""}
+{f"Context from previous answers:{chr(10)}{context}" if context else ""}
 
-{f"Additional context from RAG files:\n{chr(10).join(rag_content)}" if rag_content else ""}
+{f"Additional context from RAG files:{chr(10)}{chr(10).join(rag_content)}" if rag_content else ""}
 
 Please enhance this question to be more engaging, specific, and helpful. Make it conversational and encouraging. Return only the enhanced question, nothing else."""
 
@@ -602,9 +602,9 @@ The user has completed all questions for {module['name']}. Here are their answer
 
 {chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers.values())])}
 
-{f"Use this output template as a guide:\n{module['output_template']}" if module['output_template'] else ""}
+{f"Use this output template as a guide:{chr(10)}{module['output_template']}" if module['output_template'] else ""}
 
-{f"Additional context from RAG files:\n{chr(10).join(module['rag_content'])}" if module['rag_content'] else ""}
+{f"Additional context from RAG files:{chr(10)}{chr(10).join(module['rag_content'])}" if module['rag_content'] else ""}
 
 Please generate a comprehensive summary report that includes:
 1. A detailed analysis of their responses
