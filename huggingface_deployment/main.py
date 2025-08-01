@@ -32,17 +32,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Temp directory writable: {os.access('/tmp', os.W_OK)}")
     logger.info(f"App directory writable: {os.access('/app', os.W_OK)}")
     
-    # Try to create database tables, but don't fail if it doesn't work
-    try:
-        await create_tables()
-        logger.info("Database tables created successfully")
-    except Exception as e:
-        logger.error(f"Failed to create database tables: {e}")
-        logger.error(f"Exception type: {type(e)}")
-        logger.error(f"Exception details: {str(e)}")
-        logger.warning("Continuing startup without database - some features may be limited")
-        # Continue startup even if database creation fails
-        # The application can still run with limited functionality
+    # Skip database initialization for now to get the app running
+    logger.warning("Skipping database initialization for Hugging Face Spaces deployment")
+    logger.info("Application will run without database functionality")
+    # TODO: Implement database solution for Hugging Face Spaces
     
     logger.info("Unified Assistant backend startup completed")
     yield
@@ -89,14 +82,47 @@ async def root():
         "docs": "/docs",
         "openapi": "/openapi.json",
         "health": "/health",
-        "status": "running"
+        "status": "running",
+        "database": "disabled",
+        "note": "Database functionality is currently disabled for Hugging Face Spaces deployment"
     }
 
 # Health check endpoint
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "unified-assistant-backend"}
+    return {
+        "status": "healthy", 
+        "service": "unified-assistant-backend",
+        "database": "disabled",
+        "message": "Application is running without database functionality"
+    }
+
+# Status endpoint
+@app.get("/status")
+async def status():
+    """Status endpoint with detailed information."""
+    return {
+        "status": "running",
+        "service": "Unified Assistant API",
+        "version": "1.0.0",
+        "environment": settings.environment,
+        "database": {
+            "status": "disabled",
+            "reason": "Hugging Face Spaces deployment - database not available"
+        },
+        "features": {
+            "ai_services": "available",
+            "file_processing": "available",
+            "authentication": "disabled (requires database)",
+            "project_management": "disabled (requires database)"
+        },
+        "endpoints": {
+            "docs": "/docs",
+            "health": "/health",
+            "status": "/status"
+        }
+    }
 
 
 # Include routers

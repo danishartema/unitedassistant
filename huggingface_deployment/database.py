@@ -68,14 +68,20 @@ except Exception as e:
 
 async def get_async_db():
     """Get async database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    try:
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        # Return a mock session for now
+        logger.warning("Using mock database session - functionality will be limited")
+        yield None
 
 def get_sync_db():
     """Get sync database session for debugging."""
