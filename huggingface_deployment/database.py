@@ -53,6 +53,10 @@ SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_eng
 
 Base = declarative_base()
 
+# Import models to ensure they are registered with SQLAlchemy
+# This must be done after Base is defined and engines are created
+import models
+
 async def get_async_db():
     """Get async database session."""
     async with AsyncSessionLocal() as session:

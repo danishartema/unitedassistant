@@ -38,7 +38,7 @@ torch>=2.0.0
 accelerate>=0.24.0
 
 # Optional: For Redis backend (if using Redis with Celery)
-# redis>=5.0.0
+redis>=5.0.0
 
 # Optional: For PostgreSQL (if switching back to PostgreSQL)
 # psycopg2-binary>=2.9.0

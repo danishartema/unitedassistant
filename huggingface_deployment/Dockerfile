@@ -19,9 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create necessary directories
+# Create necessary directories and set permissions
+RUN mkdir -p /tmp/uploads
+RUN mkdir -p /tmp/logs
+RUN mkdir -p /tmp
 RUN mkdir -p uploads
 RUN mkdir -p logs
+RUN chmod 755 /app
 
 # Set environment variables
 ENV PYTHONPATH=/app
