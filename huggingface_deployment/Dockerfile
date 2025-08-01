@@ -29,6 +29,8 @@ RUN chmod 777 /app
 RUN chmod 777 /tmp
 RUN chown -R nobody:nogroup /app
 RUN chown -R nobody:nogroup /tmp
+RUN touch /app/unified_assistant.db
+RUN chmod 666 /app/unified_assistant.db
 
 # Set environment variables
 ENV PYTHONPATH=/app
