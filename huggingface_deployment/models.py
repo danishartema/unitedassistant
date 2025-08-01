@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 import uuid
 import enum
 
-from base import Base
+from database import Base
 
 
 class UserRole(str, enum.Enum):

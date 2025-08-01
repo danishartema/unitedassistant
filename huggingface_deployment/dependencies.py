@@ -29,14 +29,6 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
-    # Check if database is available
-    if db is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database service is currently unavailable"
-        )
-    
     try:
         payload = verify_token(credentials.credentials)
         user_id: str | None = payload.get("sub")
@@ -71,13 +63,6 @@ async def check_project_access(
     required_role: Optional[ProjectRole] = None
 ) -> Project:
     """Check if user has access to a project (async)."""
-    # Check if database is available
-    if db is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database service is currently unavailable"
-        )
-    
     project_result = await db.execute(
         select(Project)
         .where(Project.id == project_id)
