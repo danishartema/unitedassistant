@@ -1,4 +1,15 @@
-# Unified Assistant - Hugging Face Spaces Deployment
+---
+title: Unified Assistant - AI-Powered Document Creation Platform
+emoji: 🤖
+colorFrom: blue
+colorTo: purple
+sdk: docker
+sdk_version: 20.10.23
+app_file: app.py
+pinned: false
+---
+
+# Unified Assistant - AI-Powered Document Creation Platform
 
 ## 🚀 Quick Deploy to Hugging Face Spaces
 
