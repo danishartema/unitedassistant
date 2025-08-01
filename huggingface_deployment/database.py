@@ -5,7 +5,6 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 from config import settings
 from base import Base
 
@@ -16,25 +15,14 @@ is_sqlite = DATABASE_URL.startswith("sqlite")
 
 # Configure async engine with appropriate parameters for each database type
 if is_sqlite:
-    if ":memory:" in DATABASE_URL:
-        # For in-memory databases, we need to share the connection
-        async_engine = create_async_engine(
-            DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://"),
-            connect_args={"check_same_thread": False},
-            echo=False,  # Set to True for debugging
-            pool_pre_ping=True,
-            future=True,
-            poolclass=None  # Use NullPool for in-memory databases
-        )
-    else:
-        # For file-based SQLite databases
-        async_engine = create_async_engine(
-            DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://"),
-            connect_args={"check_same_thread": False},
-            echo=False,  # Set to True for debugging
-            pool_pre_ping=True,
-            future=True
-        )
+    # SQLite configuration - no pool_size or max_overflow
+    async_engine = create_async_engine(
+        DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://"),
+        connect_args={"check_same_thread": False},
+        echo=False,  # Set to True for debugging
+        pool_pre_ping=True,
+        future=True
+    )
 else:
     # PostgreSQL configuration - with pool parameters
     async_engine = create_async_engine(
@@ -47,40 +35,20 @@ else:
         future=True
     )
 
-# Configure session maker based on database type
-if is_sqlite and ":memory:" in DATABASE_URL:
-    # For in-memory databases, we need to share the connection
-    AsyncSessionLocal = async_sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
-        bind=async_engine,
-        expire_on_commit=False,  # This helps avoid greenlet issues
-        class_=AsyncSession
-    )
-else:
-    AsyncSessionLocal = async_sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
-        bind=async_engine,
-        expire_on_commit=False,  # This helps avoid greenlet issues
-        class_=AsyncSession
-    )
+AsyncSessionLocal = async_sessionmaker(
+    autocommit=False, 
+    autoflush=False, 
+    bind=async_engine,
+    expire_on_commit=False,  # This helps avoid greenlet issues
+    class_=AsyncSession
+)
 
 # Sync database for debugging
-if is_sqlite and ":memory:" in DATABASE_URL:
-    # For in-memory databases, use NullPool
-    sync_engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        echo=False,
-        poolclass=NullPool
-    )
-else:
-    sync_engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False} if is_sqlite else {},
-        echo=False
-    )
+sync_engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if is_sqlite else {},
+    echo=False
+)
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
 # Import models to ensure they are registered with SQLAlchemy
@@ -124,6 +92,23 @@ async def create_tables():
     
     try:
         logger.info(f"Attempting to create tables with database URL: {DATABASE_URL}")
+        
+        # Ensure the database directory exists
+        if is_sqlite and not ":memory:" in DATABASE_URL:
+            db_path = DATABASE_URL.replace("sqlite:///", "")
+            db_dir = os.path.dirname(db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                logger.info(f"Created database directory: {db_dir}")
+        
+        # Test database connection first
+        logger.info("Testing database connection...")
+        async with async_engine.begin() as conn:
+            # Simple test query
+            result = await conn.execute("SELECT 1")
+            logger.info("Database connection test successful")
+        
+        # Create tables
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")

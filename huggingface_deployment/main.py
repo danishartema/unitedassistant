@@ -28,6 +28,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Database URL: {settings.database_url}")
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Working directory: {os.getcwd()}")
+    logger.info(f"Temp directory exists: {os.path.exists('/tmp')}")
+    logger.info(f"Temp directory writable: {os.access('/tmp', os.W_OK)}")
+    logger.info(f"App directory writable: {os.access('/app', os.W_OK)}")
     
     # Try to create database tables, but don't fail if it doesn't work
     try:
