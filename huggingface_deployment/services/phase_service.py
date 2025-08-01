@@ -69,11 +69,11 @@ Please provide a comprehensive response based on the user's input.
 """
         
         # Add user input
-        prompt += f"\n\nUser Input:\n{user_input}"
+        prompt += f"{chr(10)}{chr(10)}User Input:{chr(10)}{user_input}"
         
         # Add context if available
         if context:
-            prompt += f"\n\nRelevant Context from Previous Phases:\n{context}"
+            prompt += f"{chr(10)}{chr(10)}Relevant Context from Previous Phases:{chr(10)}{context}"
         
         prompt += "\n\nPlease provide a detailed, professional response that builds upon the context and addresses the user's input:"
         
@@ -102,7 +102,7 @@ Please provide a comprehensive response based on the user's input.
             draft = PhaseDraft(
                 phase_id=phase_id,
                 version=next_version,
-                content=f"User Input: {user_input}\n\nAI Response: {ai_response}",
+                content=f"User Input: {user_input}{chr(10)}{chr(10)}AI Response: {ai_response}",
                 user_input=user_input,
                 ai_response=ai_response
             )
