@@ -95,6 +95,26 @@ class AIServiceManager:
             logger.error(f"Content generation error: {e}")
             raise Exception(f"Failed to generate content: {str(e)}")
     
+    async def generate_text(
+        self,
+        prompt: str,
+        max_tokens: int = 2000,
+        temperature: float = 0.7,
+        service: str = "auto"
+    ) -> Dict[str, str]:
+        """Generate text using the appropriate AI service. Alias for generate_content."""
+        try:
+            content = await self.generate_content(
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                service=service
+            )
+            return {"text": content}
+        except Exception as e:
+            logger.error(f"Text generation error: {e}")
+            return {"text": "I apologize, but I'm having trouble generating a response right now. Please try again."}
+
     async def create_embedding(
         self,
         text: str,

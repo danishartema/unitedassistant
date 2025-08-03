@@ -31,6 +31,10 @@ class ChatMessageRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
 
+class EditSummaryRequest(BaseModel):
+    session_id: str
+    edited_summary: str
+
 class ChatResponse(BaseModel):
     message: str
     session_id: str
@@ -849,7 +853,7 @@ async def send_chat_message(
 @router.post("/projects/{project_id}/chat/summary")
 async def get_chat_summary(
     project_id: str,
-    session_id: str,
+    req: ChatMessageRequest,
     db: AsyncSession = Depends(get_async_db),
     user=Depends(get_current_active_user)
 ):
@@ -858,8 +862,11 @@ async def get_chat_summary(
         if db is None:
             raise HTTPException(status_code=500, detail="Database connection error")
         
+        if not req.session_id:
+            raise HTTPException(status_code=400, detail="Session ID is required")
+        
         # Get session
-        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == session_id, GPTModeSession.project_id == project_id))
+        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == req.session_id, GPTModeSession.project_id == project_id))
         session = result.scalar_one_or_none()
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -882,7 +889,7 @@ async def get_chat_summary(
         await db.commit()
         
         return {
-            "session_id": session.id,
+            "session_id": req.session_id,
             "summary": summary_data.get("summary", ""),
             "module_name": session.mode_name,
             "answers": session.answers
@@ -897,8 +904,7 @@ async def get_chat_summary(
 @router.post("/projects/{project_id}/chat/edit-summary")
 async def edit_chat_summary(
     project_id: str,
-    session_id: str,
-    edited_summary: str = Body(..., embed=True),
+    req: EditSummaryRequest,
     db: AsyncSession = Depends(get_async_db),
     user=Depends(get_current_active_user)
 ):
@@ -908,24 +914,24 @@ async def edit_chat_summary(
             raise HTTPException(status_code=500, detail="Database connection error")
         
         # Get session
-        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == session_id, GPTModeSession.project_id == project_id))
+        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == req.session_id, GPTModeSession.project_id == project_id))
         session = result.scalar_one_or_none()
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Update summary
         if session.checkpoint_json:
-            session.checkpoint_json["summary"] = edited_summary
+            session.checkpoint_json["summary"] = req.edited_summary
         else:
-            session.checkpoint_json = {"summary": edited_summary}
+            session.checkpoint_json = {"summary": req.edited_summary}
         
         await db.commit()
         await db.refresh(session)
         
         return {
-            "session_id": session.id,
+            "session_id": req.session_id,
             "message": "Summary updated successfully!",
-            "summary": edited_summary
+            "summary": req.edited_summary
         }
         
     except HTTPException:

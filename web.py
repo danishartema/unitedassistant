@@ -201,7 +201,7 @@ class UnifiedAssistantClient:
     def edit_chat_summary(self, project_id: str, session_id: str, edited_summary: str) -> Dict:
         """Edit the summary for the current chat session."""
         url = f"{self.base_url}/api/{API_VERSION}/assistant/projects/{project_id}/chat/edit-summary"
-        data = {"edited_summary": edited_summary}
+        data = {"session_id": session_id, "edited_summary": edited_summary}
         response = self.session.post(url, json=data)
         return response.json()
 
