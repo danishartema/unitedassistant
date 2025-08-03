@@ -27,6 +27,20 @@ class ModuleTransitionRequest(BaseModel):
     confirm_completion: bool
     next_module_id: Optional[str] = None
 
+class ChatMessageRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+class ChatResponse(BaseModel):
+    message: str
+    session_id: str
+    is_question: bool = False
+    current_question: Optional[str] = None
+    question_number: Optional[int] = None
+    total_questions: Optional[int] = None
+    module_complete: bool = False
+    summary: Optional[str] = None
+
 @router.get("/modes")
 async def list_modes():
     """List all available assistant modes with enhanced information."""
@@ -699,3 +713,223 @@ async def get_project_summary(
     except Exception as e:
         logger.error(f"Error getting project summary: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get project summary: {str(e)}")
+
+# New conversational chat endpoints
+@router.post("/projects/{project_id}/chat/start")
+async def start_conversational_chat(
+    project_id: str,
+    req: StartModeRequest,
+    db: AsyncSession = Depends(get_async_db),
+    user=Depends(get_current_active_user)
+):
+    """Start a conversational chat session for a specific mode."""
+    try:
+        if db is None:
+            raise HTTPException(status_code=500, detail="Database connection error")
+        
+        # Check project access
+        result = await db.execute(select(Project).where(Project.id == project_id, Project.is_active == True))
+        project = result.scalar_one_or_none()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Find the module ID based on mode name
+        module_id = None
+        for mid, module in chatbot_service.modules.items():
+            if module["name"] == req.mode_name:
+                module_id = mid
+                break
+        
+        if not module_id:
+            raise HTTPException(status_code=404, detail=f"Mode '{req.mode_name}' not found")
+        
+        # Check for existing session
+        result = await db.execute(select(GPTModeSession).where(GPTModeSession.project_id == project_id, GPTModeSession.mode_name == req.mode_name))
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            # Create new session
+            session = GPTModeSession(
+                id=str(uuid.uuid4()),
+                project_id=project_id,
+                mode_name=req.mode_name,
+                current_question=0,
+                answers={},
+                checkpoint_json={}
+            )
+            db.add(session)
+            await db.commit()
+            await db.refresh(session)
+        
+        # Generate welcome message
+        welcome_message = await chatbot_service.generate_welcome_message(module_id)
+        
+        return {
+            "session_id": session.id,
+            "message": welcome_message,
+            "module_id": module_id,
+            "module_name": req.mode_name,
+            "is_question": False,
+            "current_question": 0,
+            "total_questions": len(chatbot_service.get_module_questions(module_id))
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting conversational chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to start conversational chat: {str(e)}")
+
+@router.post("/projects/{project_id}/chat/message")
+async def send_chat_message(
+    project_id: str,
+    req: ChatMessageRequest,
+    db: AsyncSession = Depends(get_async_db),
+    user=Depends(get_current_active_user)
+):
+    """Send a message in the conversational chat and get response."""
+    try:
+        if db is None:
+            raise HTTPException(status_code=500, detail="Database connection error")
+        
+        if not req.session_id:
+            raise HTTPException(status_code=400, detail="Session ID is required")
+        
+        # Get session
+        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == req.session_id, GPTModeSession.project_id == project_id))
+        session = result.scalar_one_or_none()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Find the module ID
+        module_id = None
+        for mid, module in chatbot_service.modules.items():
+            if module["name"] == session.mode_name:
+                module_id = mid
+                break
+        
+        if not module_id:
+            raise HTTPException(status_code=404, detail=f"Module not found for mode '{session.mode_name}'")
+        
+        # Process the message and get response
+        response = await chatbot_service.process_conversational_message(
+            module_id, 
+            session.current_question, 
+            session.answers, 
+            req.message
+        )
+        
+        # Update session if answer was provided
+        if response.get("answer_provided"):
+            session.answers[str(session.current_question)] = req.message
+            session.current_question += 1
+            await db.commit()
+            await db.refresh(session)
+        
+        # Check if module is complete
+        is_complete = await chatbot_service.check_module_completion_ready(module_id, session.current_question)
+        
+        return {
+            "session_id": session.id,
+            "message": response.get("message", ""),
+            "is_question": response.get("is_question", False),
+            "current_question": response.get("current_question"),
+            "question_number": session.current_question + 1,
+            "total_questions": len(chatbot_service.get_module_questions(module_id)),
+            "module_complete": is_complete,
+            "summary": response.get("summary")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing chat message: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to process chat message: {str(e)}")
+
+@router.post("/projects/{project_id}/chat/summary")
+async def get_chat_summary(
+    project_id: str,
+    session_id: str,
+    db: AsyncSession = Depends(get_async_db),
+    user=Depends(get_current_active_user)
+):
+    """Get summary for the current chat session."""
+    try:
+        if db is None:
+            raise HTTPException(status_code=500, detail="Database connection error")
+        
+        # Get session
+        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == session_id, GPTModeSession.project_id == project_id))
+        session = result.scalar_one_or_none()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Find the module ID
+        module_id = None
+        for mid, module in chatbot_service.modules.items():
+            if module["name"] == session.mode_name:
+                module_id = mid
+                break
+        
+        if not module_id:
+            raise HTTPException(status_code=404, detail=f"Module not found for mode '{session.mode_name}'")
+        
+        # Generate summary
+        summary_data = await chatbot_service.generate_module_summary(module_id, session.answers)
+        
+        # Update session with summary
+        session.checkpoint_json = summary_data
+        await db.commit()
+        
+        return {
+            "session_id": session.id,
+            "summary": summary_data.get("summary", ""),
+            "module_name": session.mode_name,
+            "answers": session.answers
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting chat summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get chat summary: {str(e)}")
+
+@router.post("/projects/{project_id}/chat/edit-summary")
+async def edit_chat_summary(
+    project_id: str,
+    session_id: str,
+    edited_summary: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_async_db),
+    user=Depends(get_current_active_user)
+):
+    """Edit the summary for the current chat session."""
+    try:
+        if db is None:
+            raise HTTPException(status_code=500, detail="Database connection error")
+        
+        # Get session
+        result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == session_id, GPTModeSession.project_id == project_id))
+        session = result.scalar_one_or_none()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Update summary
+        if session.checkpoint_json:
+            session.checkpoint_json["summary"] = edited_summary
+        else:
+            session.checkpoint_json = {"summary": edited_summary}
+        
+        await db.commit()
+        await db.refresh(session)
+        
+        return {
+            "session_id": session.id,
+            "message": "Summary updated successfully!",
+            "summary": edited_summary
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error editing chat summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to edit chat summary: {str(e)}")
