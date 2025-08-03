@@ -763,6 +763,7 @@ Format the response as a professional report with clear sections and actionable 
                 3. Mentions that you'll guide them through some questions to understand their business better
                 4. Sounds natural and conversational, not robotic
                 5. Encourages them to share what they're working on
+                6. Ends with "Let's get started!" to prompt them to begin
                 
                 Start with something like "Hi 👋 I'm here to help!" and make it feel like a real conversation.
                 Keep it friendly and under 3 sentences.
@@ -777,6 +778,7 @@ Format the response as a professional report with clear sections and actionable 
                 3. Mentions that you'll guide them through some questions to understand their needs better
                 4. Sounds natural and conversational, not robotic
                 5. Encourages them to share what they're working on
+                6. Ends with "Let's get started!" to prompt them to begin
                 
                 Start with something like "Hi 👋 I'm here to help!" and make it feel like a real conversation.
                 Keep it friendly and under 3 sentences.
@@ -817,6 +819,22 @@ Format the response as a professional report with clear sections and actionable 
                     "answer_provided": False
                 }
             
+            # If this is the first interaction (current_question = 0 and no previous answers)
+            # and the user message is not a valid answer, ask the first question
+            if current_question == 0 and not previous_answers:
+                # Check if this is a valid answer to the first question
+                validation_result = self.validate_answer(module_id, 0, user_message)
+                
+                if not validation_result["valid"]:
+                    # User hasn't provided a valid answer yet, ask the first question
+                    first_question = questions[0]
+                    return {
+                        "message": f"Great! Let's start with the first question: {first_question}",
+                        "is_question": True,
+                        "current_question": first_question,
+                        "answer_provided": False
+                    }
+            
             # Check if user wants to edit summary
             if any(keyword in user_message.lower() for keyword in ["edit", "update", "change", "modify", "summary"]):
                 if previous_answers:
@@ -841,8 +859,9 @@ Format the response as a professional report with clear sections and actionable 
                 # Valid answer provided
                 next_question_idx = current_question + 1
                 
+                # Check if this was the last question (after answering it)
                 if next_question_idx >= len(questions):
-                    # This was the last question
+                    # This was the last question - module is now complete
                     return {
                         "message": "Perfect! That's exactly what I needed to know. Let me create a comprehensive summary of everything we've discussed.",
                         "is_question": False,
