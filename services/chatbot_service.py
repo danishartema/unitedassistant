@@ -491,12 +491,30 @@ class ChatbotService:
                 "message": "This question is required."
             }
         
-        # Check length
-        if len(answer.strip()) < validation_rules.get("min_length", 3):
+        # Check for conversational responses that shouldn't be treated as answers
+        conversational_keywords = [
+            "hello", "hi", "hey", "start", "begin", "ready", "ok", "okay", 
+            "yes", "sure", "let's", "lets", "go", "begin", "start", "project",
+            "begin", "commence", "proceed", "continue", "next", "first", "thanks",
+            "thank you", "good", "great", "fine", "alright", "okay", "sure"
+        ]
+        
+        answer_lower = answer.strip().lower()
+        is_conversational = any(keyword in answer_lower for keyword in conversational_keywords)
+        
+        if is_conversational and len(answer.strip()) < 20:  # Short conversational responses
             return {
                 "valid": False,
                 "skipped": False,
-                "message": f"Answer must be at least {validation_rules.get('min_length', 3)} characters long."
+                "message": "Please provide a specific answer to the question."
+            }
+        
+        # Check length
+        if len(answer.strip()) < validation_rules.get("min_length", 5):  # Increased minimum length
+            return {
+                "valid": False,
+                "skipped": False,
+                "message": f"Answer must be at least {validation_rules.get('min_length', 5)} characters long."
             }
         
         if len(answer.strip()) > validation_rules.get("max_length", 1000):
@@ -820,13 +838,20 @@ Format the response as a professional report with clear sections and actionable 
                 }
             
             # If this is the first interaction (current_question = 0 and no previous answers)
-            # and the user message is not a valid answer, ask the first question
+            # Check if this is a conversational response or an actual answer
             if current_question == 0 and not previous_answers:
-                # Check if this is a valid answer to the first question
-                validation_result = self.validate_answer(module_id, 0, user_message)
+                # Check if this looks like a conversational response rather than an answer
+                conversational_keywords = [
+                    "hello", "hi", "hey", "start", "begin", "ready", "ok", "okay", 
+                    "yes", "sure", "let's", "lets", "go", "begin", "start", "project",
+                    "begin", "commence", "proceed", "continue", "next", "first"
+                ]
                 
-                if not validation_result["valid"]:
-                    # User hasn't provided a valid answer yet, ask the first question
+                user_message_lower = user_message.lower()
+                is_conversational = any(keyword in user_message_lower for keyword in conversational_keywords)
+                
+                if is_conversational:
+                    # This is a conversational response, ask the first question
                     first_question = questions[0]
                     return {
                         "message": f"Great! Let's start with the first question: {first_question}",
@@ -834,6 +859,19 @@ Format the response as a professional report with clear sections and actionable 
                         "current_question": first_question,
                         "answer_provided": False
                     }
+                else:
+                    # This might be an actual answer, validate it
+                    validation_result = self.validate_answer(module_id, 0, user_message)
+                    
+                    if not validation_result["valid"]:
+                        # Invalid answer, ask the first question
+                        first_question = questions[0]
+                        return {
+                            "message": f"Great! Let's start with the first question: {first_question}",
+                            "is_question": True,
+                            "current_question": first_question,
+                            "answer_provided": False
+                        }
             
             # Check if user wants to edit summary
             if any(keyword in user_message.lower() for keyword in ["edit", "update", "change", "modify", "summary"]):
