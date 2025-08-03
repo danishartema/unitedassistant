@@ -31,6 +31,9 @@ class ChatMessageRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
 
+class SummaryRequest(BaseModel):
+    session_id: str
+
 class EditSummaryRequest(BaseModel):
     session_id: str
     edited_summary: str
@@ -853,23 +856,25 @@ async def send_chat_message(
 @router.post("/projects/{project_id}/chat/summary")
 async def get_chat_summary(
     project_id: str,
-    req: ChatMessageRequest,
+    req: SummaryRequest,
     db: AsyncSession = Depends(get_async_db),
     user=Depends(get_current_active_user)
 ):
     """Get summary for the current chat session."""
     try:
+        logger.info(f"Getting chat summary for session: {req.session_id}")
+        
         if db is None:
             raise HTTPException(status_code=500, detail="Database connection error")
-        
-        if not req.session_id:
-            raise HTTPException(status_code=400, detail="Session ID is required")
         
         # Get session
         result = await db.execute(select(GPTModeSession).where(GPTModeSession.id == req.session_id, GPTModeSession.project_id == project_id))
         session = result.scalar_one_or_none()
         if not session:
+            logger.error(f"Session not found: {req.session_id}")
             raise HTTPException(status_code=404, detail="Session not found")
+        
+        logger.info(f"Found session: {session.id}, mode: {session.mode_name}, answers: {len(session.answers)}")
         
         # Find the module ID
         module_id = None
@@ -879,10 +884,18 @@ async def get_chat_summary(
                 break
         
         if not module_id:
+            logger.error(f"Module not found for mode: {session.mode_name}")
             raise HTTPException(status_code=404, detail=f"Module not found for mode '{session.mode_name}'")
         
+        logger.info(f"Generating summary for module: {module_id}, answers: {session.answers}")
+        
         # Generate summary
-        summary_data = await chatbot_service.generate_module_summary(module_id, session.answers)
+        try:
+            summary_data = await chatbot_service.generate_module_summary(module_id, session.answers)
+            logger.info(f"Summary generated successfully: {summary_data.get('summary', '')[:100]}...")
+        except Exception as e:
+            logger.error(f"Error generating summary: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
         
         # Update session with summary
         session.checkpoint_json = summary_data
