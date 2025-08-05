@@ -448,7 +448,7 @@ Your goal is to help them think through their offer in a natural, comfortable wa
 Please respond in a warm, conversational way that helps them think through their business offering naturally."""
             
             # Generate response using AI service directly
-            response = await self.ai_service.generate_response(
+            response = await self.ai_service.generate_content(
                 prompt=conversation_prompt,
                 max_tokens=500,
                 temperature=0.7
@@ -579,7 +579,7 @@ Please respond in a warm, conversational way that helps them think through their
             """
             
             # Use the AI service to generate summary
-            summary_response = await self.ai_service.generate_response(
+            summary_response = await self.ai_service.generate_content(
                 prompt=summary_prompt,
                 max_tokens=500
             )
