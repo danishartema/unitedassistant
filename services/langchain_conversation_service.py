@@ -599,7 +599,7 @@ Please respond in a warm, conversational way that helps them think through their
 
             ### 🚀 Next Steps
             [Suggestions for moving forward with this offer]
-
+            
             Conversation:
             {conversation_text}
             

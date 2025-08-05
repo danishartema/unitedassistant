@@ -620,36 +620,29 @@ class ChatbotService:
         module_id: str, 
         answers: Dict[str, str]
     ) -> Dict[str, Any]:
-        """Generate a comprehensive summary for a completed module with rate limiting."""
+        """Generate a concise summary following the exact output template format."""
         if module_id not in self.modules:
             raise ValueError(f"Module {module_id} not found")
         
         module = self.modules[module_id]
         
         try:
-            # Build the summary prompt with proper newline handling
-            template_part = ("Use this output template as a guide:\n" + module['output_template']) if module['output_template'] else ""
-            rag_part = ("Additional context from RAG files:\n" + "\n".join(module['rag_content'])) if module['rag_content'] else ""
+            # Create a focused prompt that follows the template exactly
+            template_part = module['output_template'] if module['output_template'] else ""
+            rag_part = ("\n\nAdditional context:\n" + "\n".join(module['rag_content'])) if module['rag_content'] else ""
             
-            prompt = f"""You are an expert AI assistant following this system prompt:
+            prompt = f"""You are an expert AI assistant. The user has completed {module['name']}.
 
-{module['system_prompt']}
-
-The user has completed all questions for {module['name']}. Here are their answers:
-
+User's answers:
 {chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers.values())])}
-
-{template_part}
 
 {rag_part}
 
-Please generate a comprehensive summary report that includes:
-1. A detailed analysis of their responses
-2. Key insights and recommendations
-3. Next steps or action items
-4. Any areas that might need clarification
+IMPORTANT: Generate a summary that EXACTLY follows this template format:
 
-Format the response as a professional report with clear sections and actionable insights."""
+{template_part}
+
+Fill in the template with the user's actual answers. Keep it concise and professional. Use the exact structure and emojis from the template."""
 
             # Add retry logic with exponential backoff for rate limiting
             max_retries = 3
@@ -660,9 +653,9 @@ Format the response as a professional report with clear sections and actionable 
                     # Use AI service manager for content generation
                     summary = await self.ai_manager.generate_content(
                         prompt=prompt,
-                        temperature=0.7,
-                        max_tokens=2000,
-                        service="openai"  # Prefer OpenAI for summary generation
+                        temperature=0.3,  # Lower temperature for more consistent formatting
+                        max_tokens=1500,  # Reduced for more concise output
+                        service="openai"
                     )
                     
                     return {
@@ -670,12 +663,12 @@ Format the response as a professional report with clear sections and actionable 
                         "module_id": module_id,
                         "summary": summary,
                         "answers": answers,
-                        "completion_message": f"Congratulations! You've completed {module['name']}. Here's your comprehensive summary:"
+                        "completion_message": f"✅ {module['name']} completed! Here's your summary:"
                     }
                     
                 except Exception as e:
                     if "429" in str(e) and attempt < max_retries - 1:
-                        delay = base_delay * (2 ** attempt)  # Exponential backoff
+                        delay = base_delay * (2 ** attempt)
                         logger.warning(f"Rate limited, retrying in {delay} seconds... (attempt {attempt + 1}/{max_retries})")
                         await asyncio.sleep(delay)
                         continue
@@ -687,9 +680,9 @@ Format the response as a professional report with clear sections and actionable 
             return {
                 "module_name": module["name"],
                 "module_id": module_id,
-                "summary": f"Module completed with {len(answers)} answers. Summary generation failed: {str(e)}",
+                "summary": f"✅ {module['name']} Summary\n\nModule completed with {len(answers)} answers.",
                 "answers": answers,
-                "completion_message": f"You've completed {module['name']}!"
+                "completion_message": f"✅ {module['name']} completed!"
             }
     
     async def check_module_completion_ready(
@@ -779,45 +772,27 @@ Format the response as a professional report with clear sections and actionable 
             module_info = self.modules[module_id]
             module_name = module_info["name"]
             
-            # Generate contextual welcome message based on module
+            # Generate concise welcome message based on module
             if "Offer Clarifier" in module_name:
-                welcome_prompt = """
-                You are a friendly, helpful business assistant. The user is about to start working on defining their product or service offer.
-                
-                Generate a warm, welcoming message that:
-                1. Greets them warmly and introduces yourself as their business assistant
-                2. Explains that you're here to help them clarify their offer
-                3. Mentions that you'll guide them through some questions to understand their business better
-                4. Sounds natural and conversational, not robotic
-                5. Encourages them to share what they're working on
-                6. Ends with "Let's get started!" to prompt them to begin
-                
-                Start with something like "Hi 👋 I'm here to help!" and make it feel like a real conversation.
-                Keep it friendly and under 3 sentences.
-                """
+                return "Hi 👋 I'm here to help you clarify your business offer! Let's get started!"
+            elif "Avatar" in module_name:
+                return "Hi 👋 I'm here to help you create your customer avatar! Let's get started!"
+            elif "Trigger" in module_name:
+                return "Hi 👋 I'm here to help you identify your customer triggers! Let's get started!"
+            elif "EPO" in module_name:
+                return "Hi 👋 I'm here to help you build your EPO! Let's get started!"
+            elif "SCAMPER" in module_name:
+                return "Hi 👋 I'm here to help you synthesize ideas with SCAMPER! Let's get started!"
+            elif "Concept" in module_name:
+                return "Hi 👋 I'm here to help you craft your concept! Let's get started!"
+            elif "Hook" in module_name:
+                return "Hi 👋 I'm here to help you create compelling hooks! Let's get started!"
+            elif "Campaign" in module_name:
+                return "Hi 👋 I'm here to help you generate campaign concepts! Let's get started!"
+            elif "Ideation" in module_name:
+                return "Hi 👋 I'm here to help you with ideation! Let's get started!"
             else:
-                welcome_prompt = """
-                You are a friendly, helpful business assistant. The user is about to start working on their business strategy.
-                
-                Generate a warm, welcoming message that:
-                1. Greets them warmly and introduces yourself as their business assistant
-                2. Explains that you're here to help them with their business development
-                3. Mentions that you'll guide them through some questions to understand their needs better
-                4. Sounds natural and conversational, not robotic
-                5. Encourages them to share what they're working on
-                6. Ends with "Let's get started!" to prompt them to begin
-                
-                Start with something like "Hi 👋 I'm here to help!" and make it feel like a real conversation.
-                Keep it friendly and under 3 sentences.
-                """
-            
-            response = await self.ai_manager.generate_text(
-                prompt=welcome_prompt,
-                max_tokens=150,
-                temperature=0.8
-            )
-            
-            return response.get("text", "Hi 👋 I'm here to help! Just let me know what you need support with today.")
+                return "Hi 👋 I'm here to help you with your business strategy! Let's get started!"
             
         except Exception as e:
             logger.error(f"Error generating welcome message: {e}")
@@ -1015,37 +990,24 @@ Format the response as a professional report with clear sections and actionable 
         user_answer: str, 
         next_question: str
     ) -> str:
-        """Generate a natural transition message between questions."""
+        """Generate a concise, natural transition message between questions."""
         try:
-            transition_prompt = f"""
-            You are a friendly business assistant having a natural conversation with a client.
+            # Simple, direct transitions without AI generation for consistency
+            transition_templates = [
+                f"Perfect! {next_question}",
+                f"Great! Now, {next_question}",
+                f"Excellent! {next_question}",
+                f"Got it! {next_question}",
+                f"Thanks! {next_question}"
+            ]
             
-            The client just answered: "{user_answer}"
-            
-            Now you need to ask the next question: "{next_question}"
-            
-            Generate a natural, conversational transition that:
-            1. Acknowledges their previous answer briefly and positively
-            2. Smoothly introduces the next question
-            3. Sounds like a real person, not a robot
-            4. Keeps the conversation flowing naturally
-            5. Is friendly and encouraging
-            
-            Make it sound like you're genuinely interested in their business and want to help them succeed.
-            Keep it under 2 sentences and make it conversational.
-            """
-            
-            response = await self.ai_manager.generate_text(
-                prompt=transition_prompt,
-                max_tokens=100,
-                temperature=0.8
-            )
-            
-            return response.get("text", f"Great! Now, {next_question}")
+            # Use a simple template instead of AI generation for consistency
+            import random
+            return random.choice(transition_templates)
             
         except Exception as e:
             logger.error(f"Error generating natural transition: {e}")
-            return f"Great! Now, {next_question}"
+            return f"Great! {next_question}"
 
     async def _generate_clarification_message(
         self, 
@@ -1054,37 +1016,22 @@ Format the response as a professional report with clear sections and actionable 
         user_message: str, 
         validation_error: str
     ) -> str:
-        """Generate a friendly clarification message when validation fails."""
+        """Generate a concise clarification message when validation fails."""
         try:
-            clarification_prompt = f"""
-            You are a friendly business assistant. The user's response didn't quite match what you need.
+            # Simple, direct clarification messages
+            clarification_templates = [
+                f"Could you please {validation_error}?",
+                f"To help you better, could you {validation_error}?",
+                f"Thanks! Could you {validation_error}?",
+                f"I need a bit more detail. Could you {validation_error}?"
+            ]
             
-            User's response: "{user_message}"
-            What you need: "{validation_error}"
-            Current question: "{self.get_module_questions(module_id)[current_question]}"
-            
-            Generate a friendly, helpful clarification message that:
-            1. Acknowledges their response positively
-            2. Gently explains what you need instead
-            3. Provides a helpful example or suggestion
-            4. Sounds encouraging, not critical
-            5. Keeps the conversation friendly and supportive
-            
-            Make it sound like you're helping a friend, not correcting them.
-            Keep it under 3 sentences.
-            """
-            
-            response = await self.ai_manager.generate_text(
-                prompt=clarification_prompt,
-                max_tokens=150,
-                temperature=0.8
-            )
-            
-            return response.get("text", f"I appreciate your response! To help you better, could you please {validation_error}")
+            import random
+            return random.choice(clarification_templates)
             
         except Exception as e:
             logger.error(f"Error generating clarification message: {e}")
-            return f"I appreciate your response! To help you better, could you please {validation_error}"
+            return f"Could you please {validation_error}?"
 
 
 # Global instance
