@@ -84,8 +84,15 @@ class LangChainConversationService:
                 conversational_prompts = list(system_prompt_path.glob("*Conversational*.txt"))
                 regular_prompts = list(system_prompt_path.glob("*.txt"))
                 
-                # Use conversational prompts if available, otherwise use regular prompts
-                prompt_files = conversational_prompts if conversational_prompts else regular_prompts
+                # Filter out conversational prompts from regular prompts to avoid duplication
+                if conversational_prompts:
+                    # Use only conversational prompts
+                    prompt_files = conversational_prompts
+                    logger.info(f"Using conversational prompts for module {module_id}")
+                else:
+                    # Use regular prompts only
+                    prompt_files = regular_prompts
+                    logger.info(f"Using regular prompts for module {module_id}")
                 
                 for file_path in prompt_files:
                     with open(file_path, 'r', encoding='utf-8') as f:
@@ -252,19 +259,16 @@ When you have enough information, say something like:
 ## ✅ REMEMBER
 Your goal is to help them think through their offer in a natural, comfortable way. The conversation should feel like talking to a smart friend who really understands business and wants to help them succeed.
 
-## CONTEXT INFORMATION
-{context}
-
 ## CONVERSATION HISTORY
 {chat_history}
 
 ## USER'S QUESTION
 {question}
 
-Please respond in a warm, conversational way that helps them think through their business offering naturally."""
+Please respond in a warm, conversational way that helps them think through their business offering naturally. If you have relevant context information, use it to provide better guidance."""
             )
             
-            # Create conversation chain with custom prompt
+            # Create conversation chain with custom prompt and explicit output key
             chain = ConversationalRetrievalChain.from_llm(
                 llm=llm,
                 retriever=vector_store.as_retriever(
@@ -274,6 +278,7 @@ Please respond in a warm, conversational way that helps them think through their
                 memory=memory,
                 return_source_documents=True,
                 verbose=True,
+                output_key="answer",
                 combine_docs_chain_kwargs={"prompt": conversational_prompt}
             )
             
@@ -361,25 +366,93 @@ Please respond in a warm, conversational way that helps them think through their
                 await db.commit()
                 await db.refresh(memory)
             
-            # Create conversation chain
-            chain = await self.create_conversation_chain(module_id, memory.id)
+            # Get conversation history
+            messages_query = select(ConversationMessage).where(
+                ConversationMessage.conversation_memory_id == memory.id
+            ).order_by(ConversationMessage.created_at)
             
-            if not chain:
-                return {
-                    "success": False,
-                    "message": "Failed to initialize conversation chain",
-                    "error": "Vector store creation failed"
-                }
+            messages_result = await db.execute(messages_query)
+            messages = messages_result.scalars().all()
             
-            # Process the message
-            result = await chain.ainvoke({
-                "question": user_message,
-                "chat_history": []
-            })
+            # Format conversation history
+            chat_history = []
+            for msg in messages:
+                chat_history.append(f"{msg.role.title()}: {msg.content}")
             
-            # Extract response and sources
-            response = result.get("answer", "I'm sorry, I couldn't process your message.")
-            source_documents = result.get("source_documents", [])
+            # Create a simple conversational prompt
+            conversation_prompt = f"""You are a friendly, conversational business assistant helping users clarify their product or service offers. Your goal is to have a natural, flowing conversation that feels like talking to a knowledgeable business consultant.
+
+## 🎯 YOUR ROLE
+- Be warm, engaging, and conversational
+- Ask questions naturally as part of the conversation flow
+- Remember what the user has shared and build on it
+- Help them think through their business offering step by step
+- Make them feel comfortable sharing their ideas
+
+## 💬 CONVERSATION STYLE
+- Use a friendly, casual tone
+- Ask follow-up questions to dig deeper
+- Acknowledge their responses and show understanding
+- Share insights and observations about their business
+- Guide them toward clarity without being pushy
+
+## 📋 INFORMATION TO GATHER (through natural conversation)
+As you chat, naturally gather these details about their offer:
+1. Product/Service Name - What do they call it?
+2. Core Transformation - What's the main result customers get?
+3. Key Features - What's included? What makes it valuable?
+4. Delivery Method - How do customers access it?
+5. Format - Is it a course, service, software, membership, etc.?
+6. Pricing - What's the cost structure?
+7. Unique Value - What makes it different from alternatives?
+8. Target Audience - Who is this perfect for?
+9. Problems Solved - What pain points does it address?
+
+## 🔄 CONVERSATION FLOW
+1. Start with a warm greeting and ask about their business
+2. Listen and respond naturally to what they share
+3. Ask thoughtful follow-up questions to get more details
+4. Acknowledge their insights and help them think deeper
+5. Guide them toward clarity on each aspect of their offer
+6. Summarize what you've learned and ask for confirmation
+7. Offer to create a summary when they're ready
+
+## 🎯 CONVERSATION TECHNIQUES
+- "Tell me more about..." - Encourage elaboration
+- "That's interesting! How does that work?" - Show curiosity
+- "So if I understand correctly..." - Confirm understanding
+- "What made you decide to..." - Explore their thinking
+- "How do your customers typically..." - Understand their market
+- "What would you say is the biggest..." - Identify key points
+
+## 📝 WHEN READY TO SUMMARIZE
+When you have enough information, say something like:
+"Great! I feel like I have a good understanding of your offer now. Would you like me to create a summary of everything we've discussed? This will help you see how clear and compelling your offer is, and you can make any adjustments before we move forward."
+
+## 🚫 AVOID
+- Rigid question lists
+- Formal business language
+- Pushing for specific answers
+- Making assumptions about their business
+- Rushing through the conversation
+
+## ✅ REMEMBER
+Your goal is to help them think through their offer in a natural, comfortable way. The conversation should feel like talking to a smart friend who really understands business and wants to help them succeed.
+
+## CONVERSATION HISTORY
+{chr(10).join(chat_history) if chat_history else "No previous conversation."}
+
+## USER'S QUESTION
+{user_message}
+
+Please respond in a warm, conversational way that helps them think through their business offering naturally."""
+            
+            # Generate response using AI service directly
+            response = await self.ai_service.generate_response(
+                prompt=conversation_prompt,
+                max_tokens=500,
+                temperature=0.7
+            )
             
             # Save message to database
             user_msg = ConversationMessage(
@@ -397,7 +470,6 @@ Please respond in a warm, conversational way that helps them think through their
                 content=response,
                 message_type="text",
                 context_data={
-                    "sources": [doc.metadata.get("source", "") for doc in source_documents],
                     "module_id": module_id
                 }
             )
@@ -412,13 +484,13 @@ Please respond in a warm, conversational way that helps them think through their
             
             await db.commit()
             
-            # Check if conversation is complete (you can implement your own logic)
+            # Check if conversation is complete
             is_complete = self._check_conversation_complete(response, user_message)
             
             return {
                 "success": True,
                 "message": response,
-                "sources": [doc.metadata.get("source", "") for doc in source_documents],
+                "sources": [],
                 "module_complete": is_complete,
                 "memory_id": memory.id
             }
