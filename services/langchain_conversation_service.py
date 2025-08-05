@@ -77,10 +77,17 @@ class LangChainConversationService:
             
             documents = []
             
-            # Load system prompts
+            # Load system prompts - prioritize conversational versions
             system_prompt_path = module_path / "System Prompt"
             if system_prompt_path.exists():
-                for file_path in system_prompt_path.glob("*.txt"):
+                # First, look for conversational prompts
+                conversational_prompts = list(system_prompt_path.glob("*Conversational*.txt"))
+                regular_prompts = list(system_prompt_path.glob("*.txt"))
+                
+                # Use conversational prompts if available, otherwise use regular prompts
+                prompt_files = conversational_prompts if conversational_prompts else regular_prompts
+                
+                for file_path in prompt_files:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
                         documents.append(Document(
@@ -88,7 +95,8 @@ class LangChainConversationService:
                             metadata={
                                 "source": str(file_path),
                                 "type": "system_prompt",
-                                "module": module_id
+                                "module": module_id,
+                                "is_conversational": "Conversational" in file_path.name
                             }
                         ))
             
@@ -182,7 +190,81 @@ class LangChainConversationService:
                 openai_api_key=settings.openai_api_key
             )
             
-            # Create conversation chain
+            # Create custom conversational prompt template
+            conversational_prompt = PromptTemplate(
+                input_variables=["context", "question", "chat_history"],
+                template="""You are a friendly, conversational business assistant helping users clarify their product or service offers. Your goal is to have a natural, flowing conversation that feels like talking to a knowledgeable business consultant.
+
+## 🎯 YOUR ROLE
+- Be warm, engaging, and conversational
+- Ask questions naturally as part of the conversation flow
+- Remember what the user has shared and build on it
+- Help them think through their business offering step by step
+- Make them feel comfortable sharing their ideas
+
+## 💬 CONVERSATION STYLE
+- Use a friendly, casual tone
+- Ask follow-up questions to dig deeper
+- Acknowledge their responses and show understanding
+- Share insights and observations about their business
+- Guide them toward clarity without being pushy
+
+## 📋 INFORMATION TO GATHER (through natural conversation)
+As you chat, naturally gather these details about their offer:
+1. Product/Service Name - What do they call it?
+2. Core Transformation - What's the main result customers get?
+3. Key Features - What's included? What makes it valuable?
+4. Delivery Method - How do customers access it?
+5. Format - Is it a course, service, software, membership, etc.?
+6. Pricing - What's the cost structure?
+7. Unique Value - What makes it different from alternatives?
+8. Target Audience - Who is this perfect for?
+9. Problems Solved - What pain points does it address?
+
+## 🔄 CONVERSATION FLOW
+1. Start with a warm greeting and ask about their business
+2. Listen and respond naturally to what they share
+3. Ask thoughtful follow-up questions to get more details
+4. Acknowledge their insights and help them think deeper
+5. Guide them toward clarity on each aspect of their offer
+6. Summarize what you've learned and ask for confirmation
+7. Offer to create a summary when they're ready
+
+## 🎯 CONVERSATION TECHNIQUES
+- "Tell me more about..." - Encourage elaboration
+- "That's interesting! How does that work?" - Show curiosity
+- "So if I understand correctly..." - Confirm understanding
+- "What made you decide to..." - Explore their thinking
+- "How do your customers typically..." - Understand their market
+- "What would you say is the biggest..." - Identify key points
+
+## 📝 WHEN READY TO SUMMARIZE
+When you have enough information, say something like:
+"Great! I feel like I have a good understanding of your offer now. Would you like me to create a summary of everything we've discussed? This will help you see how clear and compelling your offer is, and you can make any adjustments before we move forward."
+
+## 🚫 AVOID
+- Rigid question lists
+- Formal business language
+- Pushing for specific answers
+- Making assumptions about their business
+- Rushing through the conversation
+
+## ✅ REMEMBER
+Your goal is to help them think through their offer in a natural, comfortable way. The conversation should feel like talking to a smart friend who really understands business and wants to help them succeed.
+
+## CONTEXT INFORMATION
+{context}
+
+## CONVERSATION HISTORY
+{chat_history}
+
+## USER'S QUESTION
+{question}
+
+Please respond in a warm, conversational way that helps them think through their business offering naturally."""
+            )
+            
+            # Create conversation chain with custom prompt
             chain = ConversationalRetrievalChain.from_llm(
                 llm=llm,
                 retriever=vector_store.as_retriever(
@@ -191,7 +273,8 @@ class LangChainConversationService:
                 ),
                 memory=memory,
                 return_source_documents=True,
-                verbose=True
+                verbose=True,
+                combine_docs_chain_kwargs={"prompt": conversational_prompt}
             )
             
             # Cache the chain
@@ -350,16 +433,36 @@ class LangChainConversationService:
     
     def _check_conversation_complete(self, response: str, user_message: str) -> bool:
         """Check if the conversation is complete based on response content."""
-        # Add your logic to determine if the module is complete
-        # This could be based on keywords, response patterns, etc.
-        completion_keywords = [
-            "summary", "conclusion", "final", "complete", "finished",
-            "here's your", "here is your", "let me summarize"
+        # Check for conversational completion indicators
+        completion_indicators = [
+            "would you like me to create a summary",
+            "i feel like i have a good understanding",
+            "let me create a summary",
+            "here's a summary",
+            "summary of everything we've discussed",
+            "ready to create a summary",
+            "shall i summarize",
+            "would you like me to summarize"
         ]
         
         response_lower = response.lower()
-        for keyword in completion_keywords:
-            if keyword in response_lower:
+        for indicator in completion_indicators:
+            if indicator in response_lower:
+                return True
+        
+        # Also check if user is asking for summary
+        user_summary_requests = [
+            "create summary",
+            "generate summary", 
+            "summarize",
+            "summary please",
+            "can you summarize",
+            "give me a summary"
+        ]
+        
+        user_message_lower = user_message.lower()
+        for request in user_summary_requests:
+            if request in user_message_lower:
                 return True
         
         return False
