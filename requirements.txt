@@ -39,6 +39,13 @@ celery>=5.3.0
 # OpenAI integration
 openai>=1.0.0
 
+# LangChain and RAG components
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-community>=0.1.0
+faiss-cpu>=1.7.4
+chromadb>=0.4.0
+
 # Hugging Face integration
 huggingface-hub>=0.19.0
 transformers>=4.35.0

@@ -9,8 +9,11 @@ import time
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 from openai import OpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from services.ai_service_manager import ai_service_manager
+from services.conversation_service import ConversationService
+from services.langchain_conversation_service import LangChainConversationService
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,12 @@ class ChatbotService:
     def __init__(self):
         # Use the AI service manager for OpenAI operations
         self.ai_manager = ai_service_manager
+        
+        # Initialize conversation service for advanced memory management
+        self.conversation_service = ConversationService()
+        
+        # Initialize LangChain conversation service for RAG and memory
+        self.langchain_service = LangChainConversationService()
         
         # Keep direct OpenAI client for backward compatibility
         try:
@@ -815,13 +824,71 @@ Format the response as a professional report with clear sections and actionable 
             return "Hi 👋 I'm here to help! Just let me know what you need support with today."
 
     async def process_conversational_message(
+        self,
+        module_id: str,
+        current_question: int,
+        previous_answers: Dict[str, str],
+        user_message: str,
+        db: AsyncSession = None,
+        project_id: str = None,
+        session_id: str = None
+    ) -> Dict[str, Any]:
+        """Process a conversational message with advanced memory management and context awareness."""
+        try:
+            questions = self.get_module_questions(module_id)
+
+            # If we have database access, use LangChain conversation service
+            if db and project_id and session_id:
+                # Try LangChain first for RAG and memory
+                langchain_result = await self.langchain_service.process_message_with_langchain(
+                    db=db,
+                    project_id=project_id,
+                    session_id=session_id,
+                    module_id=module_id,
+                    user_message=user_message
+                )
+                
+                if langchain_result.get("success"):
+                    return {
+                        "message": langchain_result["message"],
+                        "is_question": False,
+                        "module_complete": langchain_result.get("module_complete", False),
+                        "sources": langchain_result.get("sources", []),
+                        "memory_id": langchain_result.get("memory_id")
+                    }
+                
+                # Fallback to original conversation service if LangChain fails
+                return await self.conversation_service.process_natural_message(
+                    db=db,
+                    project_id=project_id,
+                    session_id=session_id,
+                    module_id=module_id,
+                    user_message=user_message,
+                    module_questions=questions
+                )
+
+            # Fallback to original logic if no database access
+            return await self._process_conversational_message_fallback(
+                module_id, current_question, previous_answers, user_message
+            )
+
+        except Exception as e:
+            logger.error(f"Error processing conversational message: {e}")
+            return {
+                "message": "I'm having trouble processing that. Could you please rephrase your response?",
+                "is_question": True,
+                "current_question": questions[0] if questions else "",
+                "answer_provided": False
+            }
+    
+    async def _process_conversational_message_fallback(
         self, 
         module_id: str, 
         current_question: int, 
         previous_answers: Dict[str, str], 
         user_message: str
     ) -> Dict[str, Any]:
-        """Process a conversational message and determine the appropriate response."""
+        """Fallback conversational message processing without database."""
         try:
             questions = self.get_module_questions(module_id)
             
@@ -933,7 +1000,7 @@ Format the response as a professional report with clear sections and actionable 
                 }
                 
         except Exception as e:
-            logger.error(f"Error processing conversational message: {e}")
+            logger.error(f"Error processing conversational message fallback: {e}")
             return {
                 "message": "I'm having trouble processing that. Could you please rephrase your response?",
                 "is_question": True,

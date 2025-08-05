@@ -248,3 +248,93 @@ class ProjectSummary(Base):
         Index("idx_project_summary", "project_id"),
         Index("idx_summary_type", "project_id", "summary_type"),
     )
+
+class ConversationMemory(Base):
+    """Model for storing conversation memory and context across sessions."""
+    __tablename__ = "conversation_memory"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(36), nullable=False)  # GPTModeSession ID
+    module_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # Conversation context
+    conversation_history: Mapped[List[dict]] = mapped_column(JSON, default=list)  # List of message objects
+    context_summary: Mapped[str] = mapped_column(Text, default="")  # AI-generated context summary
+    user_profile: Mapped[dict] = mapped_column(JSON, default=dict)  # Extracted user information
+    conversation_state: Mapped[dict] = mapped_column(JSON, default=dict)  # Current conversation state
+    
+    # Memory management
+    memory_tokens: Mapped[int] = mapped_column(Integer, default=0)  # Token count for memory management
+    last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    project: Mapped["Project"] = relationship("Project")
+
+    __table_args__ = (
+        Index("idx_conversation_project", "project_id"),
+        Index("idx_conversation_session", "session_id"),
+        Index("idx_conversation_module", "module_id"),
+    )
+
+
+class CrossModuleMemory(Base):
+    """Model for storing information that should be shared across GPT modules."""
+    __tablename__ = "cross_module_memory"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False)
+    
+    # Shared information across modules
+    business_context: Mapped[dict] = mapped_column(JSON, default=dict)  # Business information
+    user_preferences: Mapped[dict] = mapped_column(JSON, default=dict)  # User preferences and style
+    project_goals: Mapped[dict] = mapped_column(JSON, default=dict)  # Project objectives
+    key_insights: Mapped[List[str]] = mapped_column(JSON, default=list)  # Important insights from previous modules
+    
+    # Module completion tracking
+    completed_modules: Mapped[List[str]] = mapped_column(JSON, default=list)  # List of completed module IDs
+    module_outputs: Mapped[dict] = mapped_column(JSON, default=dict)  # Outputs from each module
+    
+    # Context embeddings for RAG
+    context_embeddings: Mapped[List[dict]] = mapped_column(JSON, default=list)  # Vector embeddings of context
+    
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    project: Mapped["Project"] = relationship("Project")
+
+    __table_args__ = (
+        Index("idx_cross_module_project", "project_id"),
+    )
+
+
+class ConversationMessage(Base):
+    """Model for storing individual conversation messages with metadata."""
+    __tablename__ = "conversation_messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    conversation_memory_id: Mapped[str] = mapped_column(String(36), ForeignKey("conversation_memory.id"), nullable=False)
+    
+    # Message content
+    role: Mapped[str] = mapped_column(String(50), nullable=False)  # "user", "assistant", "system"
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    message_type: Mapped[str] = mapped_column(String(50), default="text")  # "text", "question", "answer", "clarification"
+    
+    # Context and metadata
+    context_data: Mapped[dict] = mapped_column(JSON, default=dict)  # Additional context
+    intent: Mapped[str] = mapped_column(String(100), default="")  # Detected intent
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)  # Confidence score
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)  # Token count
+    
+    # Relationships
+    conversation_memory: Mapped["ConversationMemory"] = relationship("ConversationMemory")
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_message_conversation", "conversation_memory_id"),
+        Index("idx_message_role", "role"),
+        Index("idx_message_created", "created_at"),
+    )

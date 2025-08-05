@@ -818,12 +818,15 @@ async def send_chat_message(
         if not module_id:
             raise HTTPException(status_code=404, detail=f"Module not found for mode '{session.mode_name}'")
         
-        # Process the message and get response
+        # Process the message and get response with database context
         response = await chatbot_service.process_conversational_message(
             module_id, 
             session.current_question, 
             session.answers, 
-            req.message
+            req.message,
+            db=db,
+            project_id=project_id,
+            session_id=req.session_id
         )
         
         # Update session if answer was provided

@@ -302,7 +302,7 @@ def show_main_application():
     # Sidebar navigation
     page = st.sidebar.selectbox(
         "Navigation",
-        ["Dashboard", "Projects", "Chatbot Testing", "Conversational Chat", "Saved Summaries", "API Testing", "Export Testing"]
+        ["Dashboard", "Projects", "Chatbot Testing", "Saved Summaries", "API Testing", "Export Testing"]
     )
     
     # Logout button
@@ -338,8 +338,6 @@ def show_main_application():
         show_projects_page()
     elif page == "Chatbot Testing":
         show_chatbot_testing()
-    elif page == "Conversational Chat":
-        show_conversational_chat()
     elif page == "Saved Summaries":
         show_saved_summaries()
     elif page == "API Testing":
@@ -512,80 +510,124 @@ def show_chatbot_testing():
     
     st.success(f"Current Mode: **{st.session_state.current_mode}**")
     
-    # Chatbot interface
-    st.subheader("Chatbot Interface")
+    # Single Module Conversational Chat Interface
+    st.subheader("💬 Conversational Chat")
     
-    # Get current question
-    if not st.session_state.current_question:
-        with st.spinner("Loading question..."):
-            result = st.session_state.client.get_next_question(
-                st.session_state.current_project['id'],
-                st.session_state.current_mode
-            )
-            if "question" in result:
-                st.session_state.current_question = result
-            else:
-                st.error(f"Failed to get question: {result.get('detail', 'Unknown error')}")
+    # Initialize chat session if not exists
+    if 'single_module_chat_messages' not in st.session_state:
+        st.session_state.single_module_chat_messages = []
+    if 'single_module_chat_session_id' not in st.session_state:
+        st.session_state.single_module_chat_session_id = None
+    if 'single_module_completed' not in st.session_state:
+        st.session_state.single_module_completed = False
+    if 'single_module_summary' not in st.session_state:
+        st.session_state.single_module_summary = None
+    
+    # Start chat session if not already started
+    if not st.session_state.single_module_chat_session_id and not st.session_state.single_module_completed:
+        with st.spinner("Starting conversational chat..."):
+            try:
+                result = st.session_state.client.start_conversational_chat(
+                    st.session_state.current_project['id'],
+                    st.session_state.current_mode
+                )
+                if "session_id" in result:
+                    st.session_state.single_module_chat_session_id = result["session_id"]
+                    st.session_state.single_module_chat_messages = [{
+                        "role": "assistant",
+                        "content": result.get("message", "Hi! Let's start our conversation.")
+                    }]
+                    st.rerun()
+                else:
+                    st.error(f"Failed to start chat: {result.get('detail', 'Unknown error')}")
+                    return
+            except Exception as e:
+                st.error(f"Error starting chat: {str(e)}")
                 return
     
-    # Display current question
-    if st.session_state.current_question:
-        question_data = st.session_state.current_question
+    # Display chat messages
+    if st.session_state.single_module_chat_messages:
+        for message in st.session_state.single_module_chat_messages:
+            if message["role"] == "assistant":
+                st.chat_message("assistant").write(message["content"])
+            else:
+                st.chat_message("user").write(message["content"])
+    
+    # Show completion status and summary
+    if st.session_state.single_module_completed:
+        st.success("✅ Module completed!")
         
-        st.markdown("### Current Question")
-        st.info(question_data.get('question', 'No question available'))
+        if st.session_state.single_module_summary:
+            st.subheader("📋 Summary")
+            st.markdown(st.session_state.single_module_summary)
+            
+            # Download summary
+            if st.button("📥 Download Summary"):
+                summary_text = f"# {st.session_state.current_mode} Summary\n\n{st.session_state.single_module_summary}"
+                st.download_button(
+                    label="Download as Markdown",
+                    data=summary_text,
+                    file_name=f"{st.session_state.current_mode}_summary.md",
+                    mime="text/markdown"
+                )
         
-        # Validation rules are handled internally - no need to display to user
+        # Reset button
+        if st.button("🔄 Start New Session"):
+            st.session_state.single_module_chat_session_id = None
+            st.session_state.single_module_chat_messages = []
+            st.session_state.single_module_completed = False
+            st.session_state.single_module_summary = None
+            st.session_state.current_mode = None
+            st.rerun()
+        return
+    
+    # Chat input
+    if prompt := st.chat_input("Type your message here..."):
+        # Add user message
+        st.session_state.single_module_chat_messages.append({
+            "role": "user",
+            "content": prompt
+        })
         
-        # Answer input
-        with st.form("answer_form"):
-            answer = st.text_area("Your Answer", height=150)
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                submit_answer = st.form_submit_button("Submit Answer")
-            
-            with col2:
-                skip_question = st.form_submit_button("Skip Question")
-            
-            if submit_answer and answer:
-                with st.spinner("Submitting answer..."):
-                    result = st.session_state.client.submit_answer(
-                        st.session_state.current_project['id'],
-                        st.session_state.current_mode,
-                        answer
-                    )
-                    if "done" in result:
-                        if result["done"]:
-                            st.success("Module completed!")
-                            st.session_state.current_question = None
-                            st.session_state.current_mode = None
-                            st.rerun()
-                        else:
-                            st.success("Answer submitted!")
-                            st.session_state.current_question = result
-                            st.rerun()
-                    else:
-                        st.error(f"Failed to submit answer: {result.get('detail', 'Unknown error')}")
-            
-            elif skip_question:
-                with st.spinner("Skipping question..."):
-                    result = st.session_state.client.skip_question(
-                        st.session_state.current_project['id'],
-                        st.session_state.current_mode
-                    )
-                    if "done" in result:
-                        if result["done"]:
-                            st.success("Module completed!")
-                            st.session_state.current_question = None
-                            st.session_state.current_mode = None
-                            st.rerun()
-                        else:
-                            st.success("Question skipped!")
-                            st.session_state.current_question = result
-                            st.rerun()
-                    else:
-                        st.error(f"Failed to skip question: {result.get('detail', 'Unknown error')}")
+        # Send message to backend
+        with st.spinner("Processing..."):
+            try:
+                result = st.session_state.client.send_chat_message(
+                    st.session_state.current_project['id'],
+                    st.session_state.single_module_chat_session_id,
+                    prompt
+                )
+                
+                if "message" in result:
+                    # Add assistant response
+                    st.session_state.single_module_chat_messages.append({
+                        "role": "assistant",
+                        "content": result["message"]
+                    })
+                    
+                    # Check if module is complete
+                    if result.get("module_complete", False):
+                        st.session_state.single_module_completed = True
+                        
+                        # Get summary
+                        try:
+                            summary_result = st.session_state.client.get_chat_summary(
+                                st.session_state.current_project['id'],
+                                st.session_state.single_module_chat_session_id
+                            )
+                            if "summary" in summary_result:
+                                st.session_state.single_module_summary = summary_result["summary"]
+                        except Exception as e:
+                            st.warning(f"Could not retrieve summary: {str(e)}")
+                    
+                        st.rerun()
+                else:
+                    st.error(f"Failed to process message: {result.get('detail', 'Unknown error')}")
+                    
+            except Exception as e:
+                st.error(f"Error sending message: {str(e)}")
+                # Remove the user message if there was an error
+                st.session_state.single_module_chat_messages.pop()
 
 def run_all_gpts_mode(modes):
     """Run through all GPT modules in sequence with conversational chat support."""
@@ -679,21 +721,14 @@ def run_all_gpts_mode(modes):
         st.markdown(f"""
         **Current Module:** {current_module_name}
         
-        Choose how you'd like to interact with this module:
+        Start the conversational chat for this module:
         """)
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("💬 Conversational Chat", type="primary", use_container_width=True):
-                st.session_state.all_gpts_conversational_mode = True
-                st.session_state.all_gpts_chat_messages[current_module_id] = []
-                st.rerun()
-        
-        with col2:
-            if st.button("📝 Traditional Q&A", use_container_width=True):
-                st.session_state.all_gpts_conversational_mode = False
-                st.rerun()
+        # Only show Conversational Chat option
+        if st.button("💬 Conversational Chat", type="primary", use_container_width=True):
+            st.session_state.all_gpts_conversational_mode = True
+            st.session_state.all_gpts_chat_messages[current_module_id] = []
+            st.rerun()
         
         # Skip module option
         if st.button("⏭️ Skip This Module"):
@@ -706,63 +741,16 @@ def run_all_gpts_mode(modes):
             st.session_state.all_gpts_current_question_idx = 0
             st.success(f"✅ Skipped {current_module_name}")
             st.rerun()
-        return
+            return
     
     # Conversational chat mode for current module
     if st.session_state.all_gpts_conversational_mode:
         run_conversational_module_chat(current_module_id, current_module_name, current_module_idx, len(module_ids))
         return
     
-    # Traditional Q&A mode (existing code)
-    # Get questions for current module (cache to avoid infinite calls)
-    if 'cached_questions' not in st.session_state:
-        st.session_state.cached_questions = {}
-    
-    if current_module_id not in st.session_state.cached_questions:
-        st.session_state.cached_questions[current_module_id] = st.session_state.client.get_module_questions(current_module_id)
-    
-    questions = st.session_state.cached_questions[current_module_id]
-    
-    # Initialize answers for current module if not exists
-    if current_module_id not in st.session_state.all_gpts_answers:
-        st.session_state.all_gpts_answers[current_module_id] = {}
-    
-    # Check if current module is completed
-    if current_question_idx >= len(questions):
-        # Move to next module
-        st.success(f"✅ Completed {current_module_name}")
-        st.session_state.all_gpts_current_module_idx += 1
-        st.session_state.all_gpts_current_question_idx = 0
-        st.rerun()
-        return
-    
-    # Show current question
-    current_question = questions[current_question_idx]
-    st.markdown(f"**Question {current_question_idx + 1}/{len(questions)}:** {current_question}")
-    
-    # Answer form
-    with st.form(f"all_gpts_answer_{current_module_id}_{current_question_idx}"):
-        answer = st.text_area("Your Answer", height=150, key=f"answer_{current_module_id}_{current_question_idx}")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            submit_answer = st.form_submit_button("Submit Answer")
-        with col2:
-            skip_question = st.form_submit_button("Skip Question")
-        
-        if submit_answer and answer:
-            # Store answer and move to next question
-            st.session_state.all_gpts_answers[current_module_id][str(current_question_idx)] = answer
-            st.session_state.all_gpts_current_question_idx += 1
-            st.success("Answer submitted!")
-            st.rerun()
-            
-        elif skip_question:
-            # Mark as skipped and move to next question
-            st.session_state.all_gpts_answers[current_module_id][str(current_question_idx)] = "[SKIPPED]"
-            st.session_state.all_gpts_current_question_idx += 1
-            st.success("Question skipped!")
-            st.rerun()
+    # Only Conversational Chat mode is available
+    # Traditional Q&A mode has been removed
+    pass
 
 def run_conversational_module_chat(module_id, module_name, module_idx, total_modules):
     """Run conversational chat for a specific module in All GPTs mode."""
@@ -878,7 +866,6 @@ def run_conversational_module_chat(module_id, module_name, module_idx, total_mod
                             st.session_state.all_gpts_chat_session_id = None
                             st.success(f"✅ Moving to next module")
                             st.rerun()
-                    
                 else:
                     st.error("Failed to generate summary")
             except Exception as e:
