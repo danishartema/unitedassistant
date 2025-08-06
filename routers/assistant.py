@@ -6,6 +6,7 @@ from models import Project, GPTModeSession, ProjectMemory, ProjectSummary
 from dependencies import get_current_active_user, check_project_access
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone
 import uuid
 import logging
 from services.chatbot_service import chatbot_service
@@ -145,7 +146,9 @@ async def start_mode_session(
             mode_name=req.mode_name,
             current_question=0,
             answers={},
-            checkpoint_json={}
+            checkpoint_json={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         
         logger.info(f"Adding new session to database: {new_session.id}")
