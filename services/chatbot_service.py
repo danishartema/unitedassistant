@@ -806,7 +806,8 @@ Fill in the template with the user's actual answers. Keep it concise and profess
         user_message: str,
         db: AsyncSession = None,
         project_id: str = None,
-        session_id: str = None
+        session_id: str = None,
+        user_id: str = None
     ) -> Dict[str, Any]:
         """Process a conversational message with advanced memory management and context awareness."""
         try:
