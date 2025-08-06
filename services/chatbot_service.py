@@ -812,16 +812,17 @@ Fill in the template with the user's actual answers. Keep it concise and profess
         try:
             questions = self.get_module_questions(module_id)
 
-            # If we have database access, use LangChain conversation service
-            if db and project_id and session_id:
-                # Try LangChain first for RAG and memory
-                langchain_result = await self.langchain_service.process_message_with_langchain(
-                    db=db,
-                    project_id=project_id,
-                    session_id=session_id,
-                    module_id=module_id,
-                    user_message=user_message
-                )
+                    # If we have database access, use LangChain conversation service
+        if db and project_id and session_id:
+            # Try LangChain first for RAG and memory
+            langchain_result = await self.langchain_service.process_message_with_langchain(
+                db=db,
+                project_id=project_id,
+                session_id=session_id,
+                module_id=module_id,
+                user_message=user_message,
+                user_id=user_id  # Add user_id
+            )
                 
                 if langchain_result.get("success"):
                     return {
@@ -838,6 +839,7 @@ Fill in the template with the user's actual answers. Keep it concise and profess
                     project_id=project_id,
                     session_id=session_id,
                     module_id=module_id,
+                    user_id=user_id,  # Add user_id
                     user_message=user_message,
                     module_questions=questions
                 )

@@ -340,27 +340,30 @@ Please respond in a warm, conversational way that helps them think through their
         project_id: str,
         session_id: str,
         module_id: str,
-        user_message: str
+        user_message: str,
+        user_id: str  # Add user_id parameter
     ) -> Dict[str, Any]:
         """Process a message using LangChain with memory and RAG."""
         try:
-            # Get or create conversation memory
+            # Get or create conversation memory for this user
             memory_query = select(ConversationMemory).where(
                 and_(
                     ConversationMemory.project_id == project_id,
                     ConversationMemory.session_id == session_id,
-                    ConversationMemory.module_id == module_id
+                    ConversationMemory.module_id == module_id,
+                    ConversationMemory.user_id == user_id  # Add user filter
                 )
             )
             memory_result = await db.execute(memory_query)
             memory = memory_result.scalar_one_or_none()
             
             if not memory:
-                # Create new memory
+                # Create new memory for this user
                 memory = ConversationMemory(
                     project_id=project_id,
                     session_id=session_id,
-                    module_id=module_id
+                    module_id=module_id,
+                    user_id=user_id  # Add user_id
                 )
                 db.add(memory)
                 await db.commit()

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, Boolean, 
-    ForeignKey, Enum, Float, JSON, Index
+    ForeignKey, Enum, Float, JSON, Index, UniqueConstraint
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 import uuid
@@ -185,6 +185,7 @@ class GPTModeSession(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)  # Add user isolation
     mode_name: Mapped[str] = mapped_column(String(255), nullable=False)
     current_question: Mapped[int] = mapped_column(Integer, default=0)
     answers: Mapped[dict] = mapped_column(JSON, default=dict)  # {question_number: answer}
@@ -195,6 +196,14 @@ class GPTModeSession(Base):
 
     # Relationships
     project: Mapped["Project"] = relationship("Project")
+    user: Mapped["User"] = relationship("User")  # Add user relationship
+
+    __table_args__ = (
+        Index("idx_gpt_session_project", "project_id"),
+        Index("idx_gpt_session_user", "user_id"),  # Add user index
+        Index("idx_gpt_session_mode", "mode_name"),
+        UniqueConstraint("project_id", "user_id", "mode_name", name="uq_project_user_mode"),  # Ensure unique sessions per user per mode
+    )
 
 class PhaseEmbedding(Base):
     """Phase embedding model for RAG functionality."""
@@ -255,6 +264,7 @@ class ConversationMemory(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)  # Add user isolation
     session_id: Mapped[str] = mapped_column(String(36), nullable=False)  # GPTModeSession ID
     module_id: Mapped[str] = mapped_column(String(255), nullable=False)
     
@@ -271,11 +281,13 @@ class ConversationMemory(Base):
 
     # Relationships
     project: Mapped["Project"] = relationship("Project")
+    user: Mapped["User"] = relationship("User")  # Add user relationship
 
     __table_args__ = (
         Index("idx_conversation_project", "project_id"),
         Index("idx_conversation_session", "session_id"),
         Index("idx_conversation_module", "module_id"),
+        Index("idx_conversation_user", "user_id"),  # Add user index
     )
 
 
@@ -285,6 +297,7 @@ class CrossModuleMemory(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)  # Add user isolation
     
     # Shared information across modules
     business_context: Mapped[dict] = mapped_column(JSON, default=dict)  # Business information
@@ -304,9 +317,12 @@ class CrossModuleMemory(Base):
 
     # Relationships
     project: Mapped["Project"] = relationship("Project")
+    user: Mapped["User"] = relationship("User")  # Add user relationship
 
     __table_args__ = (
         Index("idx_cross_module_project", "project_id"),
+        Index("idx_cross_module_user", "user_id"),  # Add user index
+        UniqueConstraint("project_id", "user_id", name="uq_project_user_cross_module"),  # Ensure unique cross-module memory per user per project
     )
 
 

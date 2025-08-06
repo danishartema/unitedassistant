@@ -59,17 +59,19 @@ class ConversationService:
         db: AsyncSession, 
         project_id: str, 
         session_id: str, 
-        module_id: str
+        module_id: str,
+        user_id: str  # Add user_id parameter
     ) -> ConversationMemory:
         """Create a new conversation memory for a session."""
         try:
-            # Check if memory already exists
+            # Check if memory already exists for this user
             result = await db.execute(
                 select(ConversationMemory).where(
                     and_(
                         ConversationMemory.project_id == project_id,
                         ConversationMemory.session_id == session_id,
-                        ConversationMemory.module_id == module_id
+                        ConversationMemory.module_id == module_id,
+                        ConversationMemory.user_id == user_id  # Add user filter
                     )
                 )
             )
@@ -83,6 +85,7 @@ class ConversationService:
                 project_id=project_id,
                 session_id=session_id,
                 module_id=module_id,
+                user_id=user_id,  # Add user_id
                 conversation_history=[],
                 context_summary="",
                 user_profile={},
@@ -109,34 +112,46 @@ class ConversationService:
     async def get_or_create_cross_module_memory(
         self, 
         db: AsyncSession, 
-        project_id: str
+        project_id: str,
+        user_id: str  # Add user_id parameter
     ) -> CrossModuleMemory:
         """Get or create cross-module memory for a project."""
         try:
+            # Check if cross-module memory exists for this user
             result = await db.execute(
-                select(CrossModuleMemory).where(CrossModuleMemory.project_id == project_id)
-            )
-            memory = result.scalar_one_or_none()
-            
-            if not memory:
-                memory = CrossModuleMemory(
-                    project_id=project_id,
-                    business_context={},
-                    user_preferences={},
-                    project_goals={},
-                    key_insights=[],
-                    completed_modules=[],
-                    module_outputs={},
-                    context_embeddings=[]
+                select(CrossModuleMemory).where(
+                    and_(
+                        CrossModuleMemory.project_id == project_id,
+                        CrossModuleMemory.user_id == user_id  # Add user filter
+                    )
                 )
-                db.add(memory)
-                await db.commit()
-                await db.refresh(memory)
+            )
+            existing_memory = result.scalar_one_or_none()
+            
+            if existing_memory:
+                return existing_memory
+            
+            # Create new cross-module memory
+            memory = CrossModuleMemory(
+                project_id=project_id,
+                user_id=user_id,  # Add user_id
+                business_context={},
+                user_preferences={},
+                project_goals={},
+                key_insights=[],
+                completed_modules=[],
+                module_outputs={},
+                context_embeddings=[]
+            )
+            
+            db.add(memory)
+            await db.commit()
+            await db.refresh(memory)
             
             return memory
             
         except Exception as e:
-            logger.error(f"Error getting cross-module memory: {e}")
+            logger.error(f"Error getting or creating cross-module memory: {e}")
             await db.rollback()
             raise
     
@@ -322,16 +337,17 @@ class ConversationService:
         project_id: str, 
         session_id: str, 
         module_id: str, 
+        user_id: str, # Add user_id parameter
         user_message: str,
         module_questions: List[str]
     ) -> Dict[str, Any]:
         """Process a natural language message with full context awareness."""
         try:
             # Get or create conversation memory
-            memory = await self.create_conversation_memory(db, project_id, session_id, module_id)
+            memory = await self.create_conversation_memory(db, project_id, session_id, module_id, user_id)
             
             # Get cross-module memory
-            cross_memory = await self.get_or_create_cross_module_memory(db, project_id)
+            cross_memory = await self.get_or_create_cross_module_memory(db, project_id, user_id)
             
             # Add user message to memory
             await self.add_message_to_memory(

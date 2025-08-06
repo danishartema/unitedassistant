@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from database import get_async_db
 from models import Project, GPTModeSession, ProjectMemory, ProjectSummary
 from dependencies import get_current_active_user, check_project_access
@@ -119,8 +119,14 @@ async def start_mode_session(
         if not module_id:
             raise HTTPException(status_code=404, detail=f"Mode '{req.mode_name}' not found")
         
-        # Check for existing session
-        result = await db.execute(select(GPTModeSession).where(GPTModeSession.project_id == project_id, GPTModeSession.mode_name == req.mode_name))
+        # Check for existing session for this user
+        result = await db.execute(select(GPTModeSession).where(
+            and_(
+                GPTModeSession.project_id == project_id, 
+                GPTModeSession.mode_name == req.mode_name,
+                GPTModeSession.user_id == user.id  # Add user filter
+            )
+        ))
         session = result.scalar_one_or_none()
         if session:
             return {
@@ -131,10 +137,11 @@ async def start_mode_session(
                 "module_info": chatbot_service.modules[module_id]
             }
         
-        # Create new session
+        # Create new session for this user
         new_session = GPTModeSession(
             id=str(uuid.uuid4()),
             project_id=project_id,
+            user_id=user.id,  # Add user_id
             mode_name=req.mode_name,
             current_question=0,
             answers={},
@@ -826,7 +833,8 @@ async def send_chat_message(
             req.message,
             db=db,
             project_id=project_id,
-            session_id=req.session_id
+            session_id=req.session_id,
+            user_id=user.id  # Add user_id
         )
         
         # Update session if answer was provided
